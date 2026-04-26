@@ -381,7 +381,15 @@ function App() {
       <header className="hero">
         <div>
           <p className="eyebrow">Tasting Journal</p>
-          <h1>Alcohol Log</h1>
+          <h1>
+            <button
+              type="button"
+              className="title-link"
+              onClick={() => handleNavigate({ page: "logs" })}
+            >
+              Alcohol Log
+            </button>
+          </h1>
           <p className="hero-copy">
             마신 술의 사진, 향, 맛, 여운을 가볍게 남겨 두는 개인 테이스팅 노트입니다.
           </p>

@@ -108,6 +108,23 @@ h1 {
   line-height: 1;
 }
 
+.title-link {
+  display: inline;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+}
+
+.title-link:focus-visible {
+  outline: 3px solid rgba(0, 122, 255, 0.35);
+  outline-offset: 6px;
+  border-radius: 6px;
+}
+
 h2 {
   margin-bottom: 0;
   font-size: 1.55rem;
