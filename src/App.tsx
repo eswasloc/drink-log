@@ -527,6 +527,8 @@ function App() {
               </label>
             </div>
 
+            <div className="composer-divider" aria-hidden="true" />
+
             <div className="section-tabs">
               {sections.map((section) => {
                 const count = draft.sectionSelections[section.id]?.length ?? 0;
@@ -556,6 +558,8 @@ function App() {
               onToggle={handleToggleFlavor}
               onIntensityChange={handleIntensityChange}
             />
+
+            <div className="composer-divider" aria-hidden="true" />
 
             <label className="note-field">
               짧은 메모
