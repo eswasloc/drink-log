@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CategoryGrid } from "./components/CategoryGrid";
 import { FlavorPicker } from "./components/FlavorPicker";
 import {
+  CATEGORY_META,
   CATEGORY_ORDER,
   FLAVOR_DEFINITIONS,
   compareNegativeLast,
@@ -101,6 +102,39 @@ function getTotalFlavors(log: TastingLog) {
   return Object.values(log.sensory.sections).flat().length;
 }
 
+function getAverageIntensity(entries: FlavorEntry[]) {
+  if (entries.length === 0) {
+    return 0;
+  }
+
+  const total = entries.reduce((sum, entry) => sum + entry.intensity, 0);
+  return Math.round((total / entries.length) * 10) / 10;
+}
+
+function getCategoryProfile(log: TastingLog) {
+  const entries = Object.values(log.sensory.sections).flat();
+  const totals = CATEGORY_ORDER.map((category) => {
+    const categoryEntries = entries.filter((entry) => entry.category === category);
+    return {
+      category,
+      count: categoryEntries.length,
+      total: categoryEntries.reduce((sum, entry) => sum + entry.intensity, 0),
+    };
+  });
+  const maxTotal = Math.max(...totals.map((item) => item.total), 1);
+
+  return totals
+    .filter((item) => item.total > 0)
+    .map((item) => ({
+      ...item,
+      strength: Math.max(8, Math.round((item.total / maxTotal) * 100)),
+    }));
+}
+
+function getPhotoCountClass(count: number) {
+  return `is-count-${Math.min(Math.max(count, 0), 4)}`;
+}
+
 function getProfileInitial(label: string) {
   return label
     .split(" ")
@@ -138,6 +172,7 @@ function App() {
   const [activeCategory, setActiveCategory] = useState<FlavorCategory>("sweet");
   const [logs, setLogs] = useState<TastingLog[]>([]);
   const [selectedLog, setSelectedLog] = useState<TastingLog | null>(null);
+  const [activeImage, setActiveImage] = useState<BottleImage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -683,6 +718,96 @@ function App() {
 
             {!isLoading && selectedLog ? (
               <>
+                <div className="detail-hero">
+                  <div className="detail-title-row">
+                    <div>
+                      <p className="kicker">Tasting Note</p>
+                      <h2>{selectedLog.bottle.name}</h2>
+                      <p className="detail-subtitle">
+                        {PROFILE_LABELS[selectedLog.bottle.type]} / {selectedLog.bottle.abv ?? "-"}% / {selectedLog.bottle.brand || "Brand not set"}
+                      </p>
+                    </div>
+                    <div className="detail-title-side">
+                      <time>{formatDate(selectedLog.created_at)}</time>
+                      <div className="detail-actions">
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => handleNavigate({ page: "logs" })}
+                        >
+                          List
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => handleNavigate({ page: "edit", id: selectedLog.id })}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="danger-button"
+                          onClick={() => void handleDeleteLog(selectedLog.id)}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`detail-photo-collage ${getPhotoCountClass(selectedLog.images.length)}`}>
+                    {selectedLog.images.length > 0 ? (
+                      selectedLog.images.map((image) => (
+                        <button
+                          key={image.id}
+                          type="button"
+                          className="detail-slide"
+                          onClick={() => setActiveImage(image)}
+                        >
+                          <img src={image.data_url} alt={image.file_name} />
+                        </button>
+                      ))
+                    ) : (
+                      <div className="detail-photo-placeholder">
+                        <span>{getProfileInitial(PROFILE_LABELS[selectedLog.bottle.type])}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedLog.sensory.note ? (
+                    <blockquote className="detail-memo">
+                      {selectedLog.sensory.note}
+                    </blockquote>
+                  ) : null}
+
+                  <section className="detail-profile detail-profile-side" aria-label="Flavor profile">
+                    <div className="detail-profile-heading">
+                      <h3>Flavor Profile</h3>
+                    </div>
+                    {getCategoryProfile(selectedLog).length === 0 ? (
+                      <p className="empty-copy">No flavor notes</p>
+                    ) : (
+                      <div className="detail-category-bars">
+                        {getCategoryProfile(selectedLog).map((item) => (
+                          <div key={item.category} className="detail-category-bar">
+                            <div>
+                              <strong>{CATEGORY_META[item.category].short}</strong>
+                              <small>{item.count}</small>
+                            </div>
+                            <span aria-hidden="true">
+                              <i
+                                className={`is-${item.category}`}
+                                style={{ width: `${item.strength}%` }}
+                              />
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </div>
+
                 <div className="panel-header">
                   <div>
                     <p className="kicker">Detail</p>
@@ -738,8 +863,17 @@ function App() {
                     );
                     return (
                       <article key={section.id} className="detail-section">
-                        <h3>{section.label}</h3>
-                        <p>{section.helper}</p>
+                        <div className="detail-section-heading">
+                          <div>
+                            <h3>{section.label}</h3>
+                            <p>{section.helper}</p>
+                          </div>
+                          {entries.length > 0 ? (
+                            <span>
+                              {entries.length} notes / avg {getAverageIntensity(entries)}
+                            </span>
+                          ) : null}
+                        </div>
                         {entries.length === 0 ? (
                           <span className="empty-copy">기록 없음</span>
                         ) : (
@@ -747,10 +881,19 @@ function App() {
                             {entries.map((entry) => (
                               <div
                                 key={`${section.id}-${entry.flavor}`}
-                                className={`detail-flavor ${entry.valence === "negative" ? "is-negative" : ""}`}
+                                className={`detail-flavor is-${entry.category} ${entry.valence === "negative" ? "is-negative" : ""}`}
                               >
-                                <strong>{getFlavorLabel(entry.flavor)}</strong>
-                                <span>{"★".repeat(entry.intensity)}</span>
+                                <div>
+                                  <strong>{getFlavorLabel(entry.flavor)}</strong>
+                                  <small>{CATEGORY_META[entry.category].short}</small>
+                                </div>
+                                <span
+                                  className="detail-intensity"
+                                  aria-label={`Intensity ${entry.intensity} of 5`}
+                                >
+                                  <i style={{ width: `${entry.intensity * 20}%` }} />
+                                  <em>{entry.intensity}</em>
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -768,6 +911,25 @@ function App() {
             ) : null}
           </section>
         </main>
+      ) : null}
+
+      {activeImage ? (
+        <div
+          className="image-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={activeImage.file_name}
+          onClick={() => setActiveImage(null)}
+        >
+          <button
+            type="button"
+            className="image-modal-close"
+            onClick={() => setActiveImage(null)}
+          >
+            Close
+          </button>
+          <img src={activeImage.data_url} alt={activeImage.file_name} />
+        </div>
       ) : null}
     </div>
   );
