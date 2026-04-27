@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { CategoryGrid } from "./components/CategoryGrid";
 import { FlavorPicker } from "./components/FlavorPicker";
-import { CATEGORY_ORDER, FLAVOR_DEFINITIONS } from "./data/flavors";
+import {
+  CATEGORY_ORDER,
+  FLAVOR_DEFINITIONS,
+  compareNegativeLast,
+  sortNegativeLast,
+} from "./data/flavors";
 import { PROFILE_LABELS, PROFILE_SECTIONS } from "./data/profiles";
 import {
   createEmptySectionSelections,
@@ -76,7 +81,7 @@ function formatDate(value: string) {
 }
 
 function getSelectedForSection(draft: DraftEntry) {
-  return draft.sectionSelections[draft.sectionId] ?? [];
+  return sortNegativeLast(draft.sectionSelections[draft.sectionId] ?? []);
 }
 
 function serializeDraft(draft: DraftEntry) {
@@ -120,7 +125,10 @@ function getFeaturedFlavors(log: TastingLog) {
         sectionLabel: section.label,
       })),
     )
-    .sort((left, right) => right.intensity - left.intensity)
+    .sort(
+      (left, right) =>
+        compareNegativeLast(left, right) || right.intensity - left.intensity,
+    )
     .slice(0, 3);
 }
 
@@ -241,17 +249,19 @@ function App() {
       const currentEntries = current.sectionSelections[current.sectionId] ?? [];
       const exists = currentEntries.find((entry) => entry.flavor === flavor.key);
 
-      const nextEntries = exists
-        ? currentEntries.filter((entry) => entry.flavor !== flavor.key)
-        : [
-            ...currentEntries,
-            {
-              flavor: flavor.key,
-              intensity: 2,
-              valence: flavor.valence,
-              category: flavor.category,
-            } satisfies FlavorEntry,
-          ];
+      const nextEntries = sortNegativeLast(
+        exists
+          ? currentEntries.filter((entry) => entry.flavor !== flavor.key)
+          : [
+              ...currentEntries,
+              {
+                flavor: flavor.key,
+                intensity: 2,
+                valence: flavor.valence,
+                category: flavor.category,
+              } satisfies FlavorEntry,
+            ],
+      );
 
       return {
         ...current,
@@ -719,7 +729,9 @@ function App() {
 
                 <div className="detail-grid">
                   {PROFILE_SECTIONS[selectedLog.sensory.profile].map((section) => {
-                    const entries = selectedLog.sensory.sections[section.id] ?? [];
+                    const entries = sortNegativeLast(
+                      selectedLog.sensory.sections[section.id] ?? [],
+                    );
                     return (
                       <article key={section.id} className="detail-section">
                         <h3>{section.label}</h3>

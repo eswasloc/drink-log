@@ -6,6 +6,7 @@ import type {
   SensoryNote,
   TastingLog,
 } from "../types/models";
+import { sortNegativeLast } from "../data/flavors";
 import { PROFILE_SECTIONS } from "../data/profiles";
 
 const DB_NAME = "alcohol-log-db";
@@ -51,7 +52,7 @@ export function createDraftFromLog(log: TastingLog): DraftEntry {
   const sectionSelections = createEmptySectionSelections(log.sensory.profile);
 
   Object.entries(log.sensory.sections).forEach(([sectionId, entries]) => {
-    sectionSelections[sectionId] = entries;
+    sectionSelections[sectionId] = sortNegativeLast(entries);
   });
 
   return {
@@ -64,6 +65,15 @@ export function createDraftFromLog(log: TastingLog): DraftEntry {
     note: log.sensory.note,
     images: log.images,
   };
+}
+
+function sortSectionSelections(sections: Record<string, FlavorEntry[]>) {
+  return Object.fromEntries(
+    Object.entries(sections).map(([sectionId, entries]) => [
+      sectionId,
+      sortNegativeLast(entries),
+    ]),
+  );
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -281,7 +291,7 @@ export async function saveLog(draft: DraftEntry): Promise<TastingLog> {
   const sensory: SensoryNote = {
     bottle_id: bottle.id,
     profile: draft.profile,
-    sections: draft.sectionSelections,
+    sections: sortSectionSelections(draft.sectionSelections),
     note: draft.note.trim(),
   };
 
@@ -351,7 +361,7 @@ export async function updateLog(id: string, draft: DraftEntry): Promise<TastingL
         const sensory: SensoryNote = {
           bottle_id: id,
           profile: draft.profile,
-          sections: draft.sectionSelections,
+          sections: sortSectionSelections(draft.sectionSelections),
           note: draft.note.trim(),
         };
 
