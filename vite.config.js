@@ -13,7 +13,7 @@ import basicSsl from "@vitejs/plugin-basic-ssl";
 export default defineConfig(function (_a) {
     var mode = _a.mode;
     return ({
-        base: "/drink-log/",
+        base: mode === "github-pages" ? "/drink-log/" : "/",
         plugins: __spreadArray([react()], (mode === "https" ? [basicSsl()] : []), true),
         server: {
             host: true,
