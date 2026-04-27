@@ -45,6 +45,53 @@
 - Database: Cloudflare D1
 - Auth: Google OAuth
 
+### Authentication and Authorization
+
+Cloudflare integration must not expose unauthenticated write APIs. The frontend may be
+static, but any Pages Functions / Workers endpoint that writes to D1 or R2 must require
+an authenticated user before allowing create, update, or delete operations.
+
+Initial auth direction:
+
+- Use Google OAuth as the application login.
+- Store the Google identity in a `users` table.
+- Treat `provider + provider_user_id` as the stable external identity key.
+- Use the Google `sub` claim as `provider_user_id`; do not rely on email as the primary
+  identity because email can change.
+- Issue an application session cookie from the Cloudflare Worker / Pages Function after
+  the OAuth callback is verified.
+
+Minimum `users` shape:
+
+```sql
+users (
+  id TEXT PRIMARY KEY,
+  provider TEXT NOT NULL,
+  provider_user_id TEXT NOT NULL,
+  email TEXT,
+  display_name TEXT,
+  avatar_url TEXT,
+  created_at TEXT NOT NULL,
+  last_login_at TEXT NOT NULL,
+  UNIQUE (provider, provider_user_id)
+)
+```
+
+Authorization model:
+
+- Add `owner_id` foreign keys to user-owned records such as `bottles`, `images`, and
+  `sensory_notes`.
+- Every read/write API must derive the current user from the session and filter by
+  `owner_id`.
+- Return `403` for detail, update, or delete attempts against records owned by another
+  user.
+- R2 image keys should be resolved through authorized API logic instead of exposing a
+  write path directly from the browser.
+
+Cloudflare Access with email OTP can still be useful as a temporary outer gate for a
+private test deployment, but it only authenticates allowed visitors. It does not replace
+row-level authorization when multiple people use the app.
+
 ---
 
 ## 4. Core Data Model
