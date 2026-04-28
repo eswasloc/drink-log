@@ -36,6 +36,18 @@ type Route =
   | { page: "detail"; id: string }
   | { page: "edit"; id: string };
 
+type AuthUser = {
+  id: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+};
+
+type AuthState =
+  | { status: "loading"; user: null }
+  | { status: "anonymous"; user: null }
+  | { status: "authenticated"; user: AuthUser };
+
 function parseRoute(): Route {
   const hash = window.location.hash.replace(/^#/, "") || "/";
   const parts = hash.split("/").filter(Boolean);
@@ -177,6 +189,7 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editBaseline, setEditBaseline] = useState<string | null>(null);
+  const [auth, setAuth] = useState<AuthState>({ status: "loading", user: null });
 
   const sections = PROFILE_SECTIONS[draft.profile];
   const selectedForSection = getSelectedForSection(draft);
@@ -217,6 +230,39 @@ function App() {
       setEditBaseline(null);
     }
   }, [route]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function syncAuth() {
+      try {
+        const response = await fetch("/api/me", { credentials: "include" });
+        if (!response.ok) {
+          throw new Error("Auth endpoint unavailable.");
+        }
+        const payload = (await response.json()) as
+          | { authenticated: false }
+          | { authenticated: true; user: AuthUser };
+
+        if (!cancelled) {
+          setAuth(
+            payload.authenticated
+              ? { status: "authenticated", user: payload.user }
+              : { status: "anonymous", user: null },
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setAuth({ status: "anonymous", user: null });
+        }
+      }
+    }
+
+    void syncAuth();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -421,6 +467,18 @@ function App() {
     }
   }
 
+  function handleLogin() {
+    window.location.href = "/api/auth/google/login";
+  }
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+    setAuth({ status: "anonymous", user: null });
+  }
+
   return (
     <div className="app-shell">
       <header className="hero">
@@ -440,6 +498,16 @@ function App() {
           </p>
         </div>
         <nav className="top-nav" aria-label="Primary">
+          <div className="auth-status">
+            {auth.status === "authenticated" ? (
+              <>
+                {auth.user.avatarUrl ? <img src={auth.user.avatarUrl} alt="" /> : null}
+                <span>{auth.user.displayName ?? auth.user.email ?? "Google 사용자"}</span>
+              </>
+            ) : (
+              <span>{auth.status === "loading" ? "로그인 확인 중" : "로컬 모드"}</span>
+            )}
+          </div>
           <button
             type="button"
             className={route.page === "compose" ? "is-active" : ""}
@@ -454,6 +522,15 @@ function App() {
           >
             기록 목록
           </button>
+          {auth.status === "authenticated" ? (
+            <button type="button" onClick={() => void handleLogout()}>
+              로그아웃
+            </button>
+          ) : (
+            <button type="button" onClick={handleLogin}>
+              Google 로그인
+            </button>
+          )}
         </nav>
       </header>
 

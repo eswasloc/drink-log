@@ -150,6 +150,30 @@ h3 {
   gap: 10px;
 }
 
+.auth-status {
+  display: inline-flex;
+  align-items: center;
+  max-width: 210px;
+  min-height: 42px;
+  padding: 8px 12px;
+  gap: 8px;
+  color: var(--secondary-label);
+  font-size: 0.86rem;
+}
+
+.auth-status img {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.auth-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .top-nav button,
 .section-tabs button,
 .category-card,
@@ -1496,8 +1520,17 @@ textarea:focus {
   .top-nav {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .auth-status {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+    min-height: 28px;
+    padding: 0;
+    font-size: 0.76rem;
   }
 
   .top-nav button {

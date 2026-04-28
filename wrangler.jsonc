@@ -1,23 +1,18 @@
 {
-  "name": "alcohol-log",
-  "pages_build_output_dir": "./dist",
-  "compatibility_date": "2026-04-26"
-
-  // Cloudflare Pages Functions에서 D1/R2를 붙일 때 아래 형태로 활성화합니다.
-  // 대시보드에서 리소스를 만든 뒤 id/bucket_name을 채우거나,
-  // `npx wrangler pages download config`로 현재 Pages 설정을 내려받아 합치세요.
-  //
-  // "d1_databases": [
-  //   {
-  //     "binding": "DB",
-  //     "database_name": "alcohol-log",
-  //     "database_id": "<D1_DATABASE_ID>"
-  //   }
-  // ],
-  // "r2_buckets": [
-  //   {
-  //     "binding": "IMAGES",
-  //     "bucket_name": "alcohol-log-images"
-  //   }
-  // ]
+	"name": "alcohol-log",
+	"pages_build_output_dir": "./dist",
+	"compatibility_date": "2026-04-26",
+	"d1_databases": [
+		{
+			"binding": "alcohol_log",
+			"database_name": "alcohol-log",
+			"database_id": "cfccc3af-8f52-49dd-a77e-64b51a46e78f"
+		}
+	],
+	"r2_buckets": [
+		{
+			"bucket_name": "alcohol-log-images",
+			"binding": "alcohol_log_images"
+		}
+	]
 }
