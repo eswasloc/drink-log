@@ -20,6 +20,12 @@ export type SessionPayload = {
   exp: number;
 };
 
+const REQUIRED_ENV_KEYS = [
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "SESSION_SECRET",
+] as const;
+
 const SESSION_COOKIE = "alcohol_log_session";
 const OAUTH_STATE_COOKIE = "alcohol_log_oauth_state";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -114,6 +120,28 @@ export function getDatabase(env: AppEnv) {
     throw new Error("D1 binding is missing. Expected DB or alcohol_log.");
   }
   return database;
+}
+
+export function validateAuthEnv(env: AppEnv) {
+  const missing = REQUIRED_ENV_KEYS.filter((key) => !env[key]);
+  if (missing.length === 0) {
+    return null;
+  }
+
+  return new Response(
+    JSON.stringify({
+      error: "missing_auth_environment",
+      missing,
+      message:
+        "Required OAuth secrets are missing from the Cloudflare Pages Functions runtime environment.",
+    }),
+    {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+      },
+    },
+  );
 }
 
 export function getOAuthState(request: Request) {

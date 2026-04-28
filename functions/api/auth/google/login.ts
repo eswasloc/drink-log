@@ -1,6 +1,16 @@
-import { createOAuthStateCookie, redirect, type AppEnv } from "../../../_shared/auth";
+import {
+  createOAuthStateCookie,
+  redirect,
+  validateAuthEnv,
+  type AppEnv,
+} from "../../../_shared/auth";
 
 export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
+  const envError = validateAuthEnv(env);
+  if (envError) {
+    return envError;
+  }
+
   const stateBytes = crypto.getRandomValues(new Uint8Array(16));
   const state = Array.from(stateBytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
   const redirectUri = env.GOOGLE_REDIRECT_URI ?? new URL("/api/auth/google/callback", request.url).toString();

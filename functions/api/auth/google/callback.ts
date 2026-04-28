@@ -4,6 +4,7 @@ import {
   getDatabase,
   getOAuthState,
   redirect,
+  validateAuthEnv,
   type AppEnv,
 } from "../../../_shared/auth";
 
@@ -20,6 +21,11 @@ type GoogleUserInfo = {
 };
 
 export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
+  const envError = validateAuthEnv(env);
+  if (envError) {
+    return envError;
+  }
+
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
