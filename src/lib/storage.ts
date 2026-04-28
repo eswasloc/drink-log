@@ -15,6 +15,7 @@ const BOTTLES_STORE = "bottles";
 const IMAGES_STORE = "images";
 const SENSORY_NOTES_STORE = "sensory_notes";
 const LEGACY_LOGS_STORE = "logs";
+const CLOUD_LOGS_PATH = "/api/logs/";
 const CLOUD_IMAGE_SRC_PREFIX = "/api/images?key=";
 
 let cloudStorageEnabled = false;
@@ -311,7 +312,7 @@ function buildLog(
 
 export async function loadLogs(): Promise<TastingLog[]> {
   if (cloudStorageEnabled) {
-    return cloudRequest<TastingLog[]>("/api/logs");
+    return cloudRequest<TastingLog[]>(CLOUD_LOGS_PATH);
   }
 
   return loadLocalLogs();
@@ -409,7 +410,7 @@ export async function uploadLocalLogsToCloud(logs: TastingLog[]) {
       await cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(cloudLog.id)}`);
     } catch (error) {
       if (error instanceof CloudStorageError && error.status === 404) {
-        await cloudRequest<TastingLog>("/api/logs", {
+        await cloudRequest<TastingLog>(CLOUD_LOGS_PATH, {
           method: "POST",
           body: JSON.stringify(cloudLog),
         });
@@ -426,7 +427,7 @@ export async function saveLog(draft: DraftEntry): Promise<TastingLog> {
   const entry = buildEntryFromDraft(draft, bottleId, now);
 
   if (cloudStorageEnabled) {
-    return cloudRequest<TastingLog>("/api/logs", {
+    return cloudRequest<TastingLog>(CLOUD_LOGS_PATH, {
       method: "POST",
       body: JSON.stringify(entry),
     });
