@@ -15,7 +15,8 @@ const BOTTLES_STORE = "bottles";
 const IMAGES_STORE = "images";
 const SENSORY_NOTES_STORE = "sensory_notes";
 const LEGACY_LOGS_STORE = "logs";
-const CLOUD_LOGS_PATH = "/api/logs/";
+const CLOUD_LOGS_PATH = "/api/cloud/logs";
+const CLOUD_LOG_PATH = "/api/cloud/log";
 const CLOUD_IMAGE_SRC_PREFIX = "/api/images?key=";
 
 let cloudStorageEnabled = false;
@@ -369,7 +370,9 @@ export async function loadLocalLogs(): Promise<TastingLog[]> {
 export async function getLogById(id: string): Promise<TastingLog | undefined> {
   if (cloudStorageEnabled) {
     try {
-      return await cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(id)}`);
+      return await cloudRequest<TastingLog>(
+        `${CLOUD_LOG_PATH}?id=${encodeURIComponent(id)}`,
+      );
     } catch (error) {
       if (error instanceof CloudStorageError && error.status === 404) {
         return undefined;
@@ -414,7 +417,9 @@ export async function uploadLocalLogsToCloud(logs: TastingLog[]) {
     };
 
     try {
-      await cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(cloudLog.id)}`);
+      await cloudRequest<TastingLog>(
+        `${CLOUD_LOG_PATH}?id=${encodeURIComponent(cloudLog.id)}`,
+      );
     } catch (error) {
       if (error instanceof CloudStorageError && error.status === 404) {
         await cloudRequest<TastingLog>(CLOUD_LOGS_PATH, {
@@ -469,7 +474,7 @@ export async function updateLog(id: string, draft: DraftEntry): Promise<TastingL
       throw new Error("Log not found");
     }
     const entry = buildEntryFromDraft(draft, id, existing.created_at);
-    return cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(id)}`, {
+    return cloudRequest<TastingLog>(`${CLOUD_LOG_PATH}?id=${encodeURIComponent(id)}`, {
       method: "PUT",
       body: JSON.stringify(entry),
     });
@@ -546,7 +551,7 @@ export async function updateLog(id: string, draft: DraftEntry): Promise<TastingL
 
 export async function deleteLog(id: string): Promise<void> {
   if (cloudStorageEnabled) {
-    await cloudRequest<void>(`/api/logs/${encodeURIComponent(id)}`, {
+    await cloudRequest<void>(`${CLOUD_LOG_PATH}?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
     return;

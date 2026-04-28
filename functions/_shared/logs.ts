@@ -219,6 +219,11 @@ export async function listLogs(request: Request, env: AppEnv): Promise<Response>
     rows.bottles.map((bottle) =>
       buildLog(bottle, imagesByBottleId.get(bottle.id) ?? [], sensoryByBottleId.get(bottle.id)),
     ),
+    {
+      headers: {
+        "X-Alcohol-Log-Count": String(rows.bottles.length),
+      },
+    },
   );
 }
 
