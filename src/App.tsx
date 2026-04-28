@@ -19,6 +19,7 @@ import {
   getLogById,
   loadLogs,
   saveLog,
+  setCloudStorageEnabled,
   updateLog,
   type DraftEntry,
 } from "./lib/storage";
@@ -265,6 +266,10 @@ function App() {
   }, []);
 
   useEffect(() => {
+    setCloudStorageEnabled(auth.status === "authenticated");
+  }, [auth.status]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function syncLogs() {
@@ -280,7 +285,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [auth.status]);
 
   useEffect(() => {
     let cancelled = false;
@@ -309,7 +314,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [route]);
+  }, [auth.status, route]);
 
   function updateDraft<K extends keyof DraftEntry>(key: K, value: DraftEntry[K]) {
     setDraft((current) => ({ ...current, [key]: value }));

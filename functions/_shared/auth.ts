@@ -13,6 +13,8 @@ export type AppEnv = {
   SESSION_SECRET: string;
   DB?: D1Database;
   alcohol_log?: D1Database;
+  IMAGES?: R2Bucket;
+  alcohol_log_images?: R2Bucket;
 };
 
 export type SessionPayload = {
@@ -120,6 +122,14 @@ export function getDatabase(env: AppEnv) {
     throw new Error("D1 binding is missing. Expected DB or alcohol_log.");
   }
   return database;
+}
+
+export function getImagesBucket(env: AppEnv) {
+  const bucket = env.IMAGES ?? env.alcohol_log_images;
+  if (!bucket) {
+    throw new Error("R2 binding is missing. Expected IMAGES or alcohol_log_images.");
+  }
+  return bucket;
 }
 
 export function validateAuthEnv(env: AppEnv) {

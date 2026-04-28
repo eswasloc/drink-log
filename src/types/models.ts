@@ -29,6 +29,7 @@ export interface BottleImage {
   id: string;
   bottle_id: string;
   image_key: string;
+  thumbnail_key?: string;
   data_url: string;
   thumbnail_data_url?: string;
   mime_type: string;

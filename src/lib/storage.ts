@@ -15,6 +15,9 @@ const BOTTLES_STORE = "bottles";
 const IMAGES_STORE = "images";
 const SENSORY_NOTES_STORE = "sensory_notes";
 const LEGACY_LOGS_STORE = "logs";
+const CLOUD_IMAGE_SRC_PREFIX = "/api/images?key=";
+
+let cloudStorageEnabled = false;
 
 export interface DraftEntry {
   bottleName: string;
@@ -25,6 +28,10 @@ export interface DraftEntry {
   sectionSelections: Record<string, FlavorEntry[]>;
   note: string;
   images: BottleImage[];
+}
+
+export function setCloudStorageEnabled(enabled: boolean) {
+  cloudStorageEnabled = enabled;
 }
 
 export function createInitialDraft(): DraftEntry {
@@ -74,6 +81,85 @@ function sortSectionSelections(sections: Record<string, FlavorEntry[]>) {
       sortNegativeLast(entries),
     ]),
   );
+}
+
+async function cloudRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...init?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Cloud storage request failed: ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+function getImageExtension(image: BottleImage) {
+  const fileExtension = image.file_name.split(".").pop();
+  if (fileExtension) {
+    return fileExtension;
+  }
+
+  return image.mime_type.split("/").pop() || "jpg";
+}
+
+function ensureImageKeys(image: BottleImage, bottleId: string) {
+  const imagePathPrefix = `images/${bottleId}`;
+  const thumbnailPathPrefix = `thumbnails/${bottleId}`;
+  const extension = getImageExtension(image);
+  const imageKey =
+    image.image_key.startsWith(imagePathPrefix) || image.data_url.startsWith(CLOUD_IMAGE_SRC_PREFIX)
+      ? image.image_key
+      : `${imagePathPrefix}/${image.id}.${extension}`;
+
+  return {
+    ...image,
+    bottle_id: bottleId,
+    image_key: imageKey,
+    thumbnail_key: image.thumbnail_key ?? `${thumbnailPathPrefix}/${image.id}.webp`,
+  };
+}
+
+function buildEntryFromDraft(
+  draft: DraftEntry,
+  bottleId: string,
+  createdAt: string,
+): TastingLog {
+  const bottle: Bottle = {
+    id: bottleId,
+    name: draft.bottleName.trim(),
+    type: draft.profile,
+    brand: draft.brand.trim(),
+    abv: draft.abv ? Number(draft.abv) : null,
+    created_at: createdAt,
+  };
+
+  const sensory: SensoryNote = {
+    bottle_id: bottle.id,
+    profile: draft.profile,
+    sections: sortSectionSelections(draft.sectionSelections),
+    note: draft.note.trim(),
+  };
+
+  const images = draft.images.map((image) => ensureImageKeys(image, bottle.id));
+
+  return {
+    id: bottle.id,
+    bottle,
+    images,
+    sensory,
+    created_at: createdAt,
+  };
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -210,6 +296,10 @@ function buildLog(
 }
 
 export async function loadLogs(): Promise<TastingLog[]> {
+  if (cloudStorageEnabled) {
+    return cloudRequest<TastingLog[]>("/api/logs");
+  }
+
   return withStores<TastingLog[]>(
     "readonly",
     [BOTTLES_STORE, IMAGES_STORE, SENSORY_NOTES_STORE],
@@ -251,6 +341,14 @@ export async function loadLogs(): Promise<TastingLog[]> {
 }
 
 export async function getLogById(id: string): Promise<TastingLog | undefined> {
+  if (cloudStorageEnabled) {
+    try {
+      return await cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(id)}`);
+    } catch {
+      return undefined;
+    }
+  }
+
   return withStores<TastingLog | undefined>(
     "readonly",
     [BOTTLES_STORE, IMAGES_STORE, SENSORY_NOTES_STORE],
@@ -278,37 +376,16 @@ export async function getLogById(id: string): Promise<TastingLog | undefined> {
 export async function saveLog(draft: DraftEntry): Promise<TastingLog> {
   const now = new Date().toISOString();
   const bottleId = crypto.randomUUID();
+  const entry = buildEntryFromDraft(draft, bottleId, now);
 
-  const bottle: Bottle = {
-    id: bottleId,
-    name: draft.bottleName.trim(),
-    type: draft.profile,
-    brand: draft.brand.trim(),
-    abv: draft.abv ? Number(draft.abv) : null,
-    created_at: now,
-  };
+  if (cloudStorageEnabled) {
+    return cloudRequest<TastingLog>("/api/logs", {
+      method: "POST",
+      body: JSON.stringify(entry),
+    });
+  }
 
-  const sensory: SensoryNote = {
-    bottle_id: bottle.id,
-    profile: draft.profile,
-    sections: sortSectionSelections(draft.sectionSelections),
-    note: draft.note.trim(),
-  };
-
-  const imagePathPrefix = `images/${bottle.id}`;
-  const images = draft.images.map((image) => ({
-    ...image,
-    bottle_id: bottle.id,
-    image_key: `${imagePathPrefix}/${image.id}.${image.file_name.split(".").pop() || "jpg"}`,
-  }));
-
-  const entry: TastingLog = {
-    id: bottle.id,
-    bottle,
-    images,
-    sensory,
-    created_at: now,
-  };
+  const { bottle, images, sensory } = entry;
 
   return withStores<TastingLog>(
     "readwrite",
@@ -331,6 +408,18 @@ export async function saveLog(draft: DraftEntry): Promise<TastingLog> {
 }
 
 export async function updateLog(id: string, draft: DraftEntry): Promise<TastingLog> {
+  if (cloudStorageEnabled) {
+    const existing = await getLogById(id);
+    if (!existing) {
+      throw new Error("Log not found");
+    }
+    const entry = buildEntryFromDraft(draft, id, existing.created_at);
+    return cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(entry),
+    });
+  }
+
   return withStores<TastingLog>(
     "readwrite",
     [BOTTLES_STORE, IMAGES_STORE, SENSORY_NOTES_STORE],
@@ -365,15 +454,7 @@ export async function updateLog(id: string, draft: DraftEntry): Promise<TastingL
           note: draft.note.trim(),
         };
 
-        const imagePathPrefix = `images/${id}`;
-        const images = draft.images.map((image) => ({
-          ...image,
-          bottle_id: id,
-          image_key:
-            image.image_key.startsWith(imagePathPrefix)
-              ? image.image_key
-              : `${imagePathPrefix}/${image.id}.${image.file_name.split(".").pop() || "jpg"}`,
-        }));
+        const images = draft.images.map((image) => ensureImageKeys(image, id));
 
         const keepImageIds = new Set(images.map((image) => image.id));
         existingImages
@@ -409,6 +490,13 @@ export async function updateLog(id: string, draft: DraftEntry): Promise<TastingL
 }
 
 export async function deleteLog(id: string): Promise<void> {
+  if (cloudStorageEnabled) {
+    await cloudRequest<void>(`/api/logs/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    return;
+  }
+
   return withStores<void>(
     "readwrite",
     [BOTTLES_STORE, IMAGES_STORE, SENSORY_NOTES_STORE],
