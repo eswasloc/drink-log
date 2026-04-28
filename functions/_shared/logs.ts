@@ -73,6 +73,10 @@ type SensoryRow = {
 function json(data: unknown, init?: ResponseInit) {
   const response = Response.json(data, init);
   response.headers.set("Cache-Control", "no-store");
+  response.headers.set("CDN-Cache-Control", "no-store");
+  response.headers.set("Cloudflare-CDN-Cache-Control", "no-store");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
   return response;
 }
 

@@ -13,11 +13,19 @@ type LatestBottleRow = {
 };
 
 export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
+  const noStoreHeaders = {
+    "Cache-Control": "no-store",
+    "CDN-Cache-Control": "no-store",
+    "Cloudflare-CDN-Cache-Control": "no-store",
+    Pragma: "no-cache",
+    Expires: "0",
+  };
+
   const session = await readSession(request, env);
   if (!session) {
     return Response.json(
       { authenticated: false },
-      { headers: { "Cache-Control": "no-store" } },
+      { headers: noStoreHeaders },
     );
   }
 
@@ -58,6 +66,6 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
       },
       latestBottles: latestBottles.results,
     },
-    { headers: { "Cache-Control": "no-store" } },
+    { headers: noStoreHeaders },
   );
 };

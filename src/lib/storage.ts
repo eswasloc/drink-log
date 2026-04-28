@@ -95,11 +95,18 @@ function sortSectionSelections(sections: Record<string, FlavorEntry[]>) {
 }
 
 async function cloudRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const method = init?.method ?? "GET";
+  const requestPath =
+    method === "GET"
+      ? `${path}${path.includes("?") ? "&" : "?"}_=${Date.now()}`
+      : path;
+
+  const response = await fetch(requestPath, {
     ...init,
     cache: "no-store",
     credentials: "include",
     headers: {
+      "Cache-Control": "no-cache",
       "Content-Type": "application/json",
       ...init?.headers,
     },
