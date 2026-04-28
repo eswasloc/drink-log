@@ -12,6 +12,17 @@ CREATE TABLE users (
 
 CREATE INDEX idx_users_email ON users(email);
 
+CREATE TABLE IF NOT EXISTS oauth_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_sessions_user_id ON oauth_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_sessions_expires_at ON oauth_sessions(expires_at);
+
 CREATE TABLE bottles (
   id TEXT PRIMARY KEY,
   owner_id TEXT NOT NULL,

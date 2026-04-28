@@ -23,6 +23,11 @@ export type SessionPayload = {
   exp: number;
 };
 
+type SessionRow = {
+  user_id: string;
+  expires_at: string;
+};
+
 const REQUIRED_ENV_KEYS = [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -166,6 +171,27 @@ export function getSessionCookie(request: Request) {
   return getCookie(request, SESSION_COOKIE);
 }
 
+async function ensureSessionTable(env: AppEnv) {
+  const db = getDatabase(env);
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS oauth_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+    )
+    .run();
+  await db
+    .prepare("CREATE INDEX IF NOT EXISTS idx_oauth_sessions_user_id ON oauth_sessions(user_id)")
+    .run();
+  await db
+    .prepare("CREATE INDEX IF NOT EXISTS idx_oauth_sessions_expires_at ON oauth_sessions(expires_at)")
+    .run();
+}
+
 export function createOAuthStateCookie(state: string) {
   return serializeCookie(OAUTH_STATE_COOKIE, state, {
     maxAge: 60 * 10,
@@ -180,10 +206,24 @@ export function clearOAuthStateCookie() {
   });
 }
 
-export async function createSessionCookie(userId: string, secret: string) {
-  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
-  const token = await createSignedToken({ userId, exp }, secret);
-  return serializeCookie(SESSION_COOKIE, token, { maxAge: SESSION_TTL_SECONDS });
+export async function createSessionCookie(env: AppEnv, userId: string) {
+  await ensureSessionTable(env);
+
+  const sessionId = crypto.randomUUID();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SESSION_TTL_SECONDS * 1000);
+
+  await getDatabase(env)
+    .prepare(
+      "INSERT INTO oauth_sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+    )
+    .bind(sessionId, userId, now.toISOString(), expiresAt.toISOString())
+    .run();
+
+  return serializeCookie(SESSION_COOKIE, sessionId, {
+    expires: expiresAt,
+    maxAge: SESSION_TTL_SECONDS,
+  });
 }
 
 export function clearSessionCookie() {
@@ -194,23 +234,57 @@ export function clearSessionCookie() {
 }
 
 export function clearSessionCookies() {
-  return [
-    clearSessionCookie(),
+  const paths = ["/", "/api", "/api/auth"];
+  return paths.flatMap((path) => [
     serializeCookie(SESSION_COOKIE, "", {
       expires: new Date(0),
       maxAge: 0,
+      path,
+    }),
+    serializeCookie(SESSION_COOKIE, "", {
+      expires: new Date(0),
+      maxAge: 0,
+      path,
       sameSite: "Strict",
     }),
-  ];
+  ]);
 }
 
 export async function readSession(request: Request, env: AppEnv) {
-  const token = getSessionCookie(request);
-  if (!token) {
+  const sessionId = getSessionCookie(request);
+  if (!sessionId || sessionId.includes(".")) {
     return null;
   }
 
-  return verifySignedToken(token, env.SESSION_SECRET);
+  await ensureSessionTable(env);
+  const session = await getDatabase(env)
+    .prepare("SELECT user_id, expires_at FROM oauth_sessions WHERE id = ?")
+    .bind(sessionId)
+    .first<SessionRow>();
+
+  if (!session) {
+    return null;
+  }
+
+  if (new Date(session.expires_at).getTime() <= Date.now()) {
+    await getDatabase(env).prepare("DELETE FROM oauth_sessions WHERE id = ?").bind(sessionId).run();
+    return null;
+  }
+
+  return {
+    userId: session.user_id,
+    exp: Math.floor(new Date(session.expires_at).getTime() / 1000),
+  };
+}
+
+export async function revokeSession(request: Request, env: AppEnv) {
+  const sessionId = getSessionCookie(request);
+  if (!sessionId || sessionId.includes(".")) {
+    return;
+  }
+
+  await ensureSessionTable(env);
+  await getDatabase(env).prepare("DELETE FROM oauth_sessions WHERE id = ?").bind(sessionId).run();
 }
 
 export function redirect(location: string, init?: ResponseInit) {

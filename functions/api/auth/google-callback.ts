@@ -101,6 +101,6 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
 
   const response = redirect("/#/logs");
   response.headers.append("Set-Cookie", clearOAuthStateCookie());
-  response.headers.append("Set-Cookie", await createSessionCookie(userId, env.SESSION_SECRET));
+  response.headers.append("Set-Cookie", await createSessionCookie(env, userId));
   return response;
 };

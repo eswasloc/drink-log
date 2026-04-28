@@ -1,11 +1,13 @@
-import { clearSessionCookies, redirect, type AppEnv } from "../../_shared/auth";
+import { clearSessionCookies, redirect, revokeSession, type AppEnv } from "../../_shared/auth";
 
 const LOGOUT_HEADERS = {
   "Cache-Control": "no-store",
   "Clear-Site-Data": "\"cache\"",
 };
 
-export const onRequestPost: PagesFunction<AppEnv> = async () => {
+export const onRequestPost: PagesFunction<AppEnv> = async ({ env, request }) => {
+  await revokeSession(request, env);
+
   return Response.json(
     { ok: true },
     {
@@ -17,7 +19,9 @@ export const onRequestPost: PagesFunction<AppEnv> = async () => {
   );
 };
 
-export const onRequestGet: PagesFunction<AppEnv> = async ({ request }) => {
+export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
+  await revokeSession(request, env);
+
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("returnTo") || "/#/logs";
   const response = redirect(returnTo, {
