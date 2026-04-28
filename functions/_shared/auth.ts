@@ -1,4 +1,5 @@
 type CookieOptions = {
+  expires?: Date;
   httpOnly?: boolean;
   maxAge?: number;
   path?: string;
@@ -62,6 +63,9 @@ function serializeCookie(name: string, value: string, options: CookieOptions = {
 
   if (options.maxAge !== undefined) {
     parts.push(`Max-Age=${options.maxAge}`);
+  }
+  if (options.expires) {
+    parts.push(`Expires=${options.expires.toUTCString()}`);
   }
   if (options.httpOnly ?? true) {
     parts.push("HttpOnly");
@@ -183,7 +187,10 @@ export async function createSessionCookie(userId: string, secret: string) {
 }
 
 export function clearSessionCookie() {
-  return serializeCookie(SESSION_COOKIE, "", { maxAge: 0 });
+  return serializeCookie(SESSION_COOKIE, "", {
+    expires: new Date(0),
+    maxAge: 0,
+  });
 }
 
 export async function readSession(request: Request, env: AppEnv) {
