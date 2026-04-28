@@ -6,7 +6,7 @@ import {
   redirect,
   validateAuthEnv,
   type AppEnv,
-} from "../../../_shared/auth";
+} from "../../_shared/auth";
 
 type GoogleTokenResponse = {
   access_token?: string;
@@ -35,7 +35,7 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
     return new Response("Invalid OAuth state.", { status: 400 });
   }
 
-  const redirectUri = env.GOOGLE_REDIRECT_URI ?? new URL("/api/auth/google/callback", request.url).toString();
+  const redirectUri = env.GOOGLE_REDIRECT_URI ?? new URL("/api/auth/google-callback", request.url).toString();
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: {

@@ -155,14 +155,14 @@ export function getSessionCookie(request: Request) {
 export function createOAuthStateCookie(state: string) {
   return serializeCookie(OAUTH_STATE_COOKIE, state, {
     maxAge: 60 * 10,
-    path: "/api/auth/google",
+    path: "/api/auth",
   });
 }
 
 export function clearOAuthStateCookie() {
   return serializeCookie(OAUTH_STATE_COOKIE, "", {
     maxAge: 0,
-    path: "/api/auth/google",
+    path: "/api/auth",
   });
 }
 
