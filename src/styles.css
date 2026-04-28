@@ -551,6 +551,11 @@ textarea:focus {
   font-size: 0.86rem;
 }
 
+.global-status {
+  margin: 0 0 12px;
+  padding: 0 2px;
+}
+
 .upload-button {
   width: fit-content;
   padding: 10px 16px;

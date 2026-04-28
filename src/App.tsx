@@ -340,10 +340,24 @@ function App() {
 
     async function syncLogs() {
       setIsLoading(true);
-      const nextLogs = await loadLogs();
-      if (!cancelled) {
-        setLogs(nextLogs);
-        setIsLoading(false);
+      try {
+        const nextLogs = await loadLogs();
+        if (!cancelled) {
+          setLogs(nextLogs);
+          setStatusMessage(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setStatusMessage(
+            auth.status === "authenticated"
+              ? "클라우드 기록을 불러오지 못했습니다. 새로고침해 주세요."
+              : "로컬 기록을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     }
 
@@ -616,6 +630,10 @@ function App() {
           )}
         </nav>
       </header>
+
+      {statusMessage && route.page !== "compose" && route.page !== "edit" ? (
+        <p className="status-message global-status">{statusMessage}</p>
+      ) : null}
 
       {route.page === "compose" || route.page === "edit" ? (
         <main className="single-column">

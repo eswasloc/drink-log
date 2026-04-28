@@ -313,6 +313,10 @@ export async function loadLogs(): Promise<TastingLog[]> {
     return cloudRequest<TastingLog[]>("/api/logs");
   }
 
+  return loadLocalLogs();
+}
+
+export async function loadLocalLogs(): Promise<TastingLog[]> {
   return withStores<TastingLog[]>(
     "readonly",
     [BOTTLES_STORE, IMAGES_STORE, SENSORY_NOTES_STORE],
@@ -393,41 +397,25 @@ async function getLocalLogById(id: string): Promise<TastingLog | undefined> {
   );
 }
 
-export async function loadLocalLogs(): Promise<TastingLog[]> {
-  const previousCloudState = cloudStorageEnabled;
-  cloudStorageEnabled = false;
-  try {
-    return await loadLogs();
-  } finally {
-    cloudStorageEnabled = previousCloudState;
-  }
-}
-
 export async function uploadLocalLogsToCloud(logs: TastingLog[]) {
-  const previousCloudState = cloudStorageEnabled;
-  cloudStorageEnabled = true;
-  try {
-    for (const log of logs) {
-      const cloudLog: TastingLog = {
-        ...log,
-        images: log.images.map((image) => ensureImageKeys(image, log.id)),
-      };
+  for (const log of logs) {
+    const cloudLog: TastingLog = {
+      ...log,
+      images: log.images.map((image) => ensureImageKeys(image, log.id)),
+    };
 
-      try {
-        await cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(cloudLog.id)}`);
-      } catch (error) {
-        if (error instanceof CloudStorageError && error.status === 404) {
-          await cloudRequest<TastingLog>("/api/logs", {
-            method: "POST",
-            body: JSON.stringify(cloudLog),
-          });
-          continue;
-        }
-        throw error;
+    try {
+      await cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(cloudLog.id)}`);
+    } catch (error) {
+      if (error instanceof CloudStorageError && error.status === 404) {
+        await cloudRequest<TastingLog>("/api/logs", {
+          method: "POST",
+          body: JSON.stringify(cloudLog),
+        });
+        continue;
       }
+      throw error;
     }
-  } finally {
-    cloudStorageEnabled = previousCloudState;
   }
 }
 
