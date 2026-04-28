@@ -572,7 +572,7 @@ function App() {
   }
 
   function handleLogout() {
-    window.location.href = `/api/auth/logout?returnTo=${encodeURIComponent("/#/logs")}&_=${Date.now()}`;
+    window.location.assign(`/api/auth/logout?returnTo=${encodeURIComponent("/#/logs")}&_=${Date.now()}`);
   }
 
   return (

@@ -2,7 +2,6 @@ import { clearSessionCookies, redirect, revokeSession, type AppEnv } from "../..
 
 const LOGOUT_HEADERS = {
   "Cache-Control": "no-store",
-  "Clear-Site-Data": "\"cache\"",
 };
 
 export const onRequestPost: PagesFunction<AppEnv> = async ({ env, request }) => {
