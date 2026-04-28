@@ -17,10 +17,12 @@ import {
   fileToDataUrl,
   fileToThumbnailDataUrl,
   getLogById,
+  loadLocalLogs,
   loadLogs,
   saveLog,
   setCloudStorageEnabled,
   updateLog,
+  uploadLocalLogsToCloud,
   type DraftEntry,
 } from "./lib/storage";
 import type {
@@ -189,6 +191,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncingLocalLogs, setIsSyncingLocalLogs] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [editBaseline, setEditBaseline] = useState<string | null>(null);
   const [auth, setAuth] = useState<AuthState>({ status: "loading", user: null });
 
@@ -203,7 +207,14 @@ function App() {
       ),
     [draft.sectionSelections],
   );
-  const canSave = draft.bottleName.trim().length > 0 && totalSelected > 0;
+  const canSave =
+    auth.status !== "loading" && draft.bottleName.trim().length > 0 && totalSelected > 0;
+  const storageLabel =
+    auth.status === "authenticated"
+      ? "클라우드 저장"
+      : auth.status === "loading"
+        ? "로그인 확인 중"
+        : "로컬 저장";
   const hasUnsavedEdit =
     route.page === "edit" && editBaseline !== null && serializeDraft(draft) !== editBaseline;
 
@@ -268,6 +279,61 @@ function App() {
   useEffect(() => {
     setCloudStorageEnabled(auth.status === "authenticated");
   }, [auth.status]);
+
+  useEffect(() => {
+    if (auth.status !== "authenticated") {
+      return;
+    }
+
+    let cancelled = false;
+    const userId = auth.user.id;
+
+    async function offerLocalSync() {
+      const syncKey = `alcohol-log-local-sync-offered:${userId}`;
+      if (window.localStorage.getItem(syncKey) === "1") {
+        return;
+      }
+
+      const localLogs = await loadLocalLogs();
+      if (cancelled || localLogs.length === 0) {
+        window.localStorage.setItem(syncKey, "1");
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `이 기기에만 저장된 로컬 기록 ${localLogs.length}개를 클라우드에 올릴까요?`,
+      );
+      window.localStorage.setItem(syncKey, "1");
+
+      if (!confirmed || cancelled) {
+        return;
+      }
+
+      setIsSyncingLocalLogs(true);
+      setStatusMessage("로컬 기록을 클라우드에 올리는 중...");
+      try {
+        await uploadLocalLogsToCloud(localLogs);
+        const nextLogs = await loadLogs();
+        if (!cancelled) {
+          setLogs(nextLogs);
+          setStatusMessage("로컬 기록을 클라우드에 올렸습니다.");
+        }
+      } catch {
+        if (!cancelled) {
+          setStatusMessage("로컬 기록 업로드에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSyncingLocalLogs(false);
+        }
+      }
+    }
+
+    void offerLocalSync();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -439,6 +505,7 @@ function App() {
     }
 
     setIsSaving(true);
+    setStatusMessage(null);
     try {
       const entry =
         route.page === "edit" ? await updateLog(route.id, draft) : await saveLog(draft);
@@ -449,6 +516,17 @@ function App() {
       setEditBaseline(null);
       setActiveCategory(CATEGORY_ORDER[0]);
       navigateTo({ page: "detail", id: entry.id });
+      setStatusMessage(
+        auth.status === "authenticated"
+          ? "클라우드에 저장했습니다."
+          : "이 기기에만 저장했습니다.",
+      );
+    } catch {
+      setStatusMessage(
+        auth.status === "authenticated"
+          ? "클라우드 저장에 실패했습니다. 다시 시도해 주세요."
+          : "로컬 저장에 실패했습니다. 다시 시도해 주세요.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -507,7 +585,7 @@ function App() {
             {auth.status === "authenticated" ? (
               <>
                 {auth.user.avatarUrl ? <img src={auth.user.avatarUrl} alt="" /> : null}
-                <span>{auth.user.displayName ?? auth.user.email ?? "Google 사용자"}</span>
+                <span>{auth.user.displayName ?? auth.user.email ?? "Google 사용자"} · Cloud</span>
               </>
             ) : (
               <span>{auth.status === "loading" ? "로그인 확인 중" : "로컬 모드"}</span>
@@ -702,10 +780,15 @@ function App() {
               type="button"
               className="save-button"
               onClick={() => void handleSave()}
-              disabled={isSaving || !canSave}
+              disabled={isSaving || isSyncingLocalLogs || !canSave}
             >
-              {isSaving ? "저장 중..." : route.page === "edit" ? "수정 저장" : "기록 저장"}
+              {isSaving || isSyncingLocalLogs
+                ? "저장 중..."
+                : route.page === "edit"
+                  ? `수정 저장 · ${storageLabel}`
+                  : `기록 저장 · ${storageLabel}`}
             </button>
+            {statusMessage ? <p className="status-message">{statusMessage}</p> : null}
           </section>
           ) : null}
         </main>

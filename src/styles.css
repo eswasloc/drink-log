@@ -545,6 +545,12 @@ textarea:focus {
   width: 100%;
 }
 
+.status-message {
+  margin: -8px 0 0;
+  color: var(--secondary-label);
+  font-size: 0.86rem;
+}
+
 .upload-button {
   width: fit-content;
   padding: 10px 16px;

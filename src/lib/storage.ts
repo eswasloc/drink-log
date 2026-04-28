@@ -19,6 +19,16 @@ const CLOUD_IMAGE_SRC_PREFIX = "/api/images?key=";
 
 let cloudStorageEnabled = false;
 
+export class CloudStorageError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "CloudStorageError";
+    this.status = status;
+  }
+}
+
 export interface DraftEntry {
   bottleName: string;
   brand: string;
@@ -94,7 +104,10 @@ async function cloudRequest<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`Cloud storage request failed: ${response.status}`);
+    throw new CloudStorageError(
+      response.status,
+      `Cloud storage request failed: ${response.status}`,
+    );
   }
 
   if (response.status === 204) {
@@ -344,11 +357,18 @@ export async function getLogById(id: string): Promise<TastingLog | undefined> {
   if (cloudStorageEnabled) {
     try {
       return await cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(id)}`);
-    } catch {
-      return undefined;
+    } catch (error) {
+      if (error instanceof CloudStorageError && error.status === 404) {
+        return undefined;
+      }
+      throw error;
     }
   }
 
+  return getLocalLogById(id);
+}
+
+async function getLocalLogById(id: string): Promise<TastingLog | undefined> {
   return withStores<TastingLog | undefined>(
     "readonly",
     [BOTTLES_STORE, IMAGES_STORE, SENSORY_NOTES_STORE],
@@ -371,6 +391,44 @@ export async function getLogById(id: string): Promise<TastingLog | undefined> {
       }
     },
   );
+}
+
+export async function loadLocalLogs(): Promise<TastingLog[]> {
+  const previousCloudState = cloudStorageEnabled;
+  cloudStorageEnabled = false;
+  try {
+    return await loadLogs();
+  } finally {
+    cloudStorageEnabled = previousCloudState;
+  }
+}
+
+export async function uploadLocalLogsToCloud(logs: TastingLog[]) {
+  const previousCloudState = cloudStorageEnabled;
+  cloudStorageEnabled = true;
+  try {
+    for (const log of logs) {
+      const cloudLog: TastingLog = {
+        ...log,
+        images: log.images.map((image) => ensureImageKeys(image, log.id)),
+      };
+
+      try {
+        await cloudRequest<TastingLog>(`/api/logs/${encodeURIComponent(cloudLog.id)}`);
+      } catch (error) {
+        if (error instanceof CloudStorageError && error.status === 404) {
+          await cloudRequest<TastingLog>("/api/logs", {
+            method: "POST",
+            body: JSON.stringify(cloudLog),
+          });
+          continue;
+        }
+        throw error;
+      }
+    }
+  } finally {
+    cloudStorageEnabled = previousCloudState;
+  }
 }
 
 export async function saveLog(draft: DraftEntry): Promise<TastingLog> {
