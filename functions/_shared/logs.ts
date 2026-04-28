@@ -71,7 +71,9 @@ type SensoryRow = {
 };
 
 function json(data: unknown, init?: ResponseInit) {
-  return Response.json(data, init);
+  const response = Response.json(data, init);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 
 function imageUrl(key: string) {

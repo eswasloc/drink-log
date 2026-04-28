@@ -96,6 +96,7 @@ function sortSectionSelections(sections: Record<string, FlavorEntry[]>) {
 async function cloudRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
+    cache: "no-store",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
