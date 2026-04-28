@@ -11,8 +11,24 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // Silent failure is fine during local dev.
-    });
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister())),
+      )
+      .catch(() => {
+        // Old installs should not block the app.
+      });
+  });
+}
+
+if ("caches" in window) {
+  window.addEventListener("load", () => {
+    window.caches
+      .keys()
+      .then((keys) => Promise.all(keys.map((key) => window.caches.delete(key))))
+      .catch(() => {
+        // Cache cleanup is best-effort.
+      });
   });
 }
