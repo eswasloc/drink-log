@@ -193,6 +193,17 @@ export function clearSessionCookie() {
   });
 }
 
+export function clearSessionCookies() {
+  return [
+    clearSessionCookie(),
+    serializeCookie(SESSION_COOKIE, "", {
+      expires: new Date(0),
+      maxAge: 0,
+      sameSite: "Strict",
+    }),
+  ];
+}
+
 export async function readSession(request: Request, env: AppEnv) {
   const token = getSessionCookie(request);
   if (!token) {

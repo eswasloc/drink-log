@@ -248,7 +248,10 @@ function App() {
 
     async function syncAuth() {
       try {
-        const response = await fetch("/api/me", { credentials: "include" });
+        const response = await fetch(`/api/me?_=${Date.now()}`, {
+          cache: "no-store",
+          credentials: "include",
+        });
         if (!response.ok) {
           throw new Error("Auth endpoint unavailable.");
         }
@@ -568,39 +571,8 @@ function App() {
     window.location.href = "/api/auth/google/login";
   }
 
-  async function handleLogout() {
-    setStatusMessage(null);
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        cache: "no-store",
-        credentials: "include",
-      });
-    } finally {
-      const response = await fetch(`/api/me?_=${Date.now()}`, {
-        cache: "no-store",
-        credentials: "include",
-      });
-      const payload: { authenticated: false } | { authenticated: true; user: AuthUser } = response.ok
-        ? ((await response.json()) as
-            | { authenticated: false }
-            | { authenticated: true; user: AuthUser })
-        : { authenticated: false };
-
-      if (payload.authenticated) {
-        setAuth({ status: "authenticated", user: payload.user });
-        setStatusMessage("로그아웃하지 못했습니다. 다시 시도해 주세요.");
-        return;
-      }
-
-      setCloudStorageEnabled(false);
-      setAuth({ status: "anonymous", user: null });
-      const localLogs = await loadLocalLogs();
-      setLogs(localLogs);
-      setSelectedLog(null);
-      setStatusMessage("로그아웃했습니다. 지금은 로컬 모드입니다.");
-      navigateTo({ page: "logs" });
-    }
+  function handleLogout() {
+    window.location.href = `/api/auth/logout?returnTo=${encodeURIComponent("/#/logs")}`;
   }
 
   return (

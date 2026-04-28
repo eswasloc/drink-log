@@ -8,9 +8,13 @@ type UserRow = {
 };
 
 export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
+  const headers = {
+    "Cache-Control": "no-store",
+  };
+
   const session = await readSession(request, env);
   if (!session) {
-    return Response.json({ authenticated: false });
+    return Response.json({ authenticated: false }, { headers });
   }
 
   const user = await getDatabase(env)
@@ -19,7 +23,7 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
     .first<UserRow>();
 
   if (!user) {
-    return Response.json({ authenticated: false });
+    return Response.json({ authenticated: false }, { headers });
   }
 
   return Response.json({
@@ -30,5 +34,5 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
       displayName: user.display_name,
       avatarUrl: user.avatar_url,
     },
-  });
+  }, { headers });
 };
