@@ -236,6 +236,10 @@ h3 {
   gap: 24px;
 }
 
+.sake-composer {
+  gap: 18px;
+}
+
 .panel-header {
   align-items: center;
   justify-content: space-between;
@@ -571,6 +575,223 @@ textarea:focus {
 .upload-panel {
   display: grid;
   gap: 14px;
+}
+
+.sake-section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--separator-soft);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.sake-section h3,
+.sake-section > span {
+  margin: 0;
+  color: var(--label);
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.photo-section {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.sake-upload.is-compact {
+  min-height: 72px;
+}
+
+.sake-photo-layout {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.sake-cover-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--separator-soft);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.sake-cover-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sake-cover-photo span {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(28, 28, 30, 0.68);
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.required-field {
+  color: var(--label);
+}
+
+.required-field::after {
+  content: "필수";
+  width: fit-content;
+  margin-top: -4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.sake-basic-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sake-basic-grid .required-field {
+  grid-column: span 2;
+}
+
+.sake-context-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.segmented-control {
+  display: grid;
+  gap: 8px;
+}
+
+.segmented-control.three-up {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.segmented-control.five-up {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.segmented-control button {
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--label);
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.segmented-control button.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.rating-stack,
+.tag-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.rating-row {
+  display: grid;
+  gap: 8px;
+}
+
+.rating-row > span,
+.tag-group > span {
+  color: var(--secondary-label);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.tag-group {
+  display: grid;
+  gap: 7px;
+}
+
+.tag-chip-row,
+.detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-chip-row button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--label);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.tag-chip-row button.is-selected {
+  background: rgba(0, 122, 255, 0.12);
+  border-color: rgba(0, 122, 255, 0.42);
+  color: var(--accent);
+}
+
+.tag-chip-row .add-chip {
+  min-width: 34px;
+  padding-right: 0;
+  padding-left: 0;
+  color: var(--accent);
+}
+
+.tag-inline-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.tag-inline-form input {
+  min-height: 36px;
+}
+
+.tag-inline-form button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-small);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.tag-inline-form button:disabled {
+  opacity: 0.44;
+  cursor: not-allowed;
+}
+
+.sake-tag-chips span {
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--accent);
+}
+
+.sake-detail {
+  display: grid;
+  gap: 18px;
+}
+
+.sake-summary {
+  display: flex;
 }
 
 .upload-panel p,
@@ -1576,6 +1797,10 @@ textarea:focus {
     gap: 10px;
   }
 
+  .sake-composer {
+    gap: 9px;
+  }
+
   .composer .panel-header {
     flex-direction: row;
     align-items: center;
@@ -1721,6 +1946,110 @@ textarea:focus {
   .detail-note {
     padding: 11px;
     border-radius: 10px;
+  }
+
+  .sake-section {
+    gap: 8px;
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .sake-section h3,
+  .sake-section > span {
+    font-size: 0.86rem;
+  }
+
+  .sake-photo-layout {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .sake-cover-photo {
+    border-radius: 10px;
+  }
+
+  .sake-cover-photo span {
+    top: 5px;
+    left: 5px;
+    padding: 3px 6px;
+    font-size: 0.64rem;
+  }
+
+  .sake-basic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .sake-basic-grid .required-field {
+    grid-column: 1 / -1;
+  }
+
+  .required-field::after {
+    margin-top: -2px;
+    font-size: 0.62rem;
+  }
+
+  .sake-context-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .segmented-control {
+    gap: 6px;
+  }
+
+  .segmented-control.five-up {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .segmented-control button {
+    min-height: 34px;
+    padding: 7px 6px;
+    border-radius: 9px;
+    font-size: 0.74rem;
+  }
+
+  .rating-stack,
+  .tag-groups {
+    gap: 10px;
+  }
+
+  .rating-row {
+    gap: 6px;
+  }
+
+  .rating-row > span,
+  .tag-group > span {
+    font-size: 0.74rem;
+  }
+
+  .tag-chip-row {
+    gap: 5px;
+  }
+
+  .tag-chip-row button {
+    min-height: 30px;
+    padding: 6px 9px;
+    font-size: 0.74rem;
+  }
+
+  .tag-chip-row .add-chip {
+    min-width: 30px;
+  }
+
+  .tag-inline-form {
+    grid-template-columns: minmax(0, 1fr) 52px;
+  }
+
+  .tag-inline-form input,
+  .tag-inline-form button {
+    min-height: 32px;
+    border-radius: 9px;
+    font-size: 0.74rem;
+  }
+
+  .tag-inline-form button {
+    padding: 6px 8px;
   }
 
   .flavor-toggle {
