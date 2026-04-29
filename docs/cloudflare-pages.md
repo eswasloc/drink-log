@@ -36,12 +36,14 @@ Cloudflare Access email OTP may be used as a temporary outer gate for a private 
 deployment, but it only authenticates allowed visitors. Multi-user data isolation still
 requires the application-level `users` table and `owner_id` authorization checks.
 
-현재 로컬 IndexedDB 구조는 이미 Cloudflare로 옮기기 좋게 나뉘어 있습니다.
+현재 로컬 IndexedDB 구조는 사케 MVP 기준으로 Cloudflare에 옮기기 좋게 나뉘어 있습니다.
 
-- `bottles` -> D1 `bottles`
-- `images` 메타데이터 -> D1 `bottle_images`
-- 이미지 바이너리 -> R2 `images/{bottle_id}/{image_id}.{ext}`
-- `sensory_notes` -> D1 `sensory_notes`
+- `sake_records` -> D1 `sake_records`
+- `sake_images` 메타데이터 -> D1 `sake_images`
+- 이미지 바이너리 -> R2 `images/{owner_id}/sake/{record_id}/{image_id}.{ext}`
+- 썸네일 바이너리 -> R2 `thumbnails/{owner_id}/sake/{record_id}/{image_id}.webp`
+- `tags` -> D1 `tags`
+- `record_tags` -> D1 `record_tags`
 
 즉, 다음 작업은 저장소 자체를 다시 설계하는 일이 아니라 `src/lib/storage.ts`와 같은 인터페이스를 유지하면서 Cloudflare용 저장 어댑터를 하나 더 붙이는 일입니다.
 
@@ -52,7 +54,7 @@ requires the application-level `users` table and `owner_id` authorization checks
 3. D1 database와 R2 bucket을 생성합니다.
 4. `wrangler.jsonc`의 `d1_databases`, `r2_buckets` 주석을 실제 리소스 값으로 활성화합니다.
 5. `docs/schema.sql`을 D1에 적용합니다.
-6. `functions/api/logs` 계열 Pages Functions를 추가하되, 모든 read/write에서 session user와 `owner_id`를 확인합니다.
+6. `functions/api/sake-records`와 `functions/api/tags` 계열 Pages Functions를 사용하되, 모든 read/write에서 session user와 `owner_id`를 확인합니다.
 7. 앱에서는 local-only 모드와 Cloudflare sync 모드를 선택할 수 있게 분리합니다.
 
 ## 참고 문서

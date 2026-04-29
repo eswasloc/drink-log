@@ -13,7 +13,7 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
 
   const image = await getDatabase(env)
     .prepare(
-      `SELECT mime_type FROM bottle_images
+      `SELECT mime_type FROM sake_images
        WHERE owner_id = ? AND (image_key = ? OR thumbnail_key = ?)`,
     )
     .bind(session.userId, key, key)

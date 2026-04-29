@@ -6,9 +6,10 @@ type UserRow = {
   display_name: string | null;
 };
 
-type LatestBottleRow = {
+type LatestSakeRecordRow = {
   id: string;
   name: string;
+  consumed_date: string;
   created_at: string;
 };
 
@@ -30,29 +31,45 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
   }
 
   const db = getDatabase(env);
-  const [user, bottleCount, imageCount, sensoryCount, latestBottles] = await Promise.all([
+  const [
+    user,
+    sakeRecordCount,
+    sakeImageCount,
+    tagCount,
+    recordTagCount,
+    latestSakeRecords,
+  ] = await Promise.all([
     db
       .prepare("SELECT id, email, display_name FROM users WHERE id = ?")
       .bind(session.userId)
       .first<UserRow>(),
     db
-      .prepare("SELECT COUNT(*) AS count FROM bottles WHERE owner_id = ?")
+      .prepare("SELECT COUNT(*) AS count FROM sake_records WHERE owner_id = ?")
       .bind(session.userId)
       .first<{ count: number }>(),
     db
-      .prepare("SELECT COUNT(*) AS count FROM bottle_images WHERE owner_id = ?")
+      .prepare("SELECT COUNT(*) AS count FROM sake_images WHERE owner_id = ?")
       .bind(session.userId)
       .first<{ count: number }>(),
     db
-      .prepare("SELECT COUNT(*) AS count FROM sensory_notes WHERE owner_id = ?")
+      .prepare("SELECT COUNT(*) AS count FROM tags WHERE drink_type = 'sake' AND (owner_id IS NULL OR owner_id = ?)")
       .bind(session.userId)
       .first<{ count: number }>(),
     db
       .prepare(
-        "SELECT id, name, created_at FROM bottles WHERE owner_id = ? ORDER BY created_at DESC LIMIT 5",
+        `SELECT COUNT(*) AS count
+         FROM record_tags rt
+         JOIN sake_records record ON record.id = rt.record_id
+         WHERE record.owner_id = ?`,
       )
       .bind(session.userId)
-      .all<LatestBottleRow>(),
+      .first<{ count: number }>(),
+    db
+      .prepare(
+        "SELECT id, name, consumed_date, created_at FROM sake_records WHERE owner_id = ? ORDER BY consumed_date DESC, created_at DESC LIMIT 5",
+      )
+      .bind(session.userId)
+      .all<LatestSakeRecordRow>(),
   ]);
 
   return Response.json(
@@ -60,11 +77,12 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
       authenticated: true,
       user,
       counts: {
-        bottles: bottleCount?.count ?? 0,
-        images: imageCount?.count ?? 0,
-        sensoryNotes: sensoryCount?.count ?? 0,
+        sakeRecords: sakeRecordCount?.count ?? 0,
+        sakeImages: sakeImageCount?.count ?? 0,
+        sakeTags: tagCount?.count ?? 0,
+        sakeRecordTags: recordTagCount?.count ?? 0,
       },
-      latestBottles: latestBottles.results,
+      latestSakeRecords: latestSakeRecords.results,
     },
     { headers: noStoreHeaders },
   );

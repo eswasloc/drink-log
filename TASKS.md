@@ -176,15 +176,15 @@ Phase 2 결정:
 
 ## Phase 6 - Cloudflare 스키마와 API 맞추기
 
-- [ ] `docs/schema.sql`을 새 사케 모델에 맞춘다.
+- [x] `docs/schema.sql`을 새 사케 모델에 맞춘다.
   - `sake_records`
   - `sake_images`
   - `tags`
   - `record_tags`
   - 기존 `users`
   - 기존 `oauth_sessions`
-- [ ] `docs/local-cloudflare-mapping.md`를 새 로컬 store 기준으로 고친다.
-- [ ] 클라우드 API route를 새 이름으로 맞춘다.
+- [x] `docs/local-cloudflare-mapping.md`를 새 로컬 store 기준으로 고친다.
+- [x] 클라우드 API route를 새 이름으로 맞춘다.
   - `GET /api/sake-records`
   - `POST /api/sake-records`
   - `GET /api/sake-records/:id`
@@ -194,8 +194,8 @@ Phase 2 결정:
   - `DELETE /api/sake-records/:id/images/:imageId`
   - `GET /api/tags?drink_type=sake`
   - `POST /api/tags`
-- [ ] 모든 클라우드 읽기와 쓰기는 로그인한 사용자의 `owner_id` 기준으로 제한한다.
-- [ ] R2 이미지는 `images/{owner_id}/sake/{record_id}/{image_id}.jpg` 또는
+- [x] 모든 클라우드 읽기와 쓰기는 로그인한 사용자의 `owner_id` 기준으로 제한한다.
+- [x] R2 이미지는 `images/{owner_id}/sake/{record_id}/{image_id}.jpg` 또는
       그에 준하는 인증된 경로에 저장한다.
 
 ## Phase 7 - 검증
