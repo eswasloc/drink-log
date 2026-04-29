@@ -46,13 +46,13 @@ Phase 0 결정:
 
 ## Phase 1 - 사케 도메인 모델 만들기
 
-- [ ] 범용 tasting 모델을 사케 중심 모델로 교체한다.
+- [x] 범용 tasting 모델을 사케 중심 모델로 교체한다.
   - `SakeRecord`
   - `SakeImage`
   - `SakeTag`
   - `SakeRecordTag`
   - `SakeDraft`
-- [ ] revised spec의 필드를 모델에 반영한다.
+- [x] revised spec의 필드를 모델에 반영한다.
   - `name`
   - `region`
   - `brewery`
@@ -72,9 +72,9 @@ Phase 0 결정:
   - `consumed_date`
   - `companions`
   - `food_pairing`
-- [ ] 저장 필수값은 `name`만 둔다.
-- [ ] 새 기록의 `consumed_date` 기본값은 오늘 날짜로 둔다.
-- [ ] 도수, 가격, 용량, 일본주도처럼 형식이 다양할 수 있는 값은 첫 버전에서
+- [x] 저장 필수값은 `name`만 둔다.
+- [x] 새 기록의 `consumed_date` 기본값은 오늘 날짜로 둔다.
+- [x] 도수, 가격, 용량, 일본주도처럼 형식이 다양할 수 있는 값은 첫 버전에서
       문자열로 저장한다.
 
 ## Phase 2 - 로컬 저장소 재구성

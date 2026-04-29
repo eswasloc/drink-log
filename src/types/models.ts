@@ -71,3 +71,17 @@ export interface TastingLog {
   sensory: SensoryNote;
   created_at: string;
 }
+
+export type {
+  DrinkAgainValue,
+  DrinkType,
+  SakeDraft,
+  SakeDraftImage,
+  SakeImage,
+  SakeRecord,
+  SakeRecordTag,
+  SakeTag,
+  SakeTagGroup,
+  SweetDryValue,
+  ThreeStepRatingValue,
+} from "./sake";
