@@ -200,11 +200,11 @@ Phase 2 결정:
 
 ## Phase 7 - 검증
 
-- [ ] TypeScript 모델이나 UI를 바꾼 뒤 `npm.cmd run typecheck`를 실행한다.
-- [ ] Functions나 클라우드 스키마 관련 코드를 바꾼 뒤
+- [x] TypeScript 모델이나 UI를 바꾼 뒤 `npm.cmd run typecheck`를 실행한다.
+- [x] Functions나 클라우드 스키마 관련 코드를 바꾼 뒤
       `npm.cmd run typecheck:functions`를 실행한다.
-- [ ] 배포하거나 커밋하기 전 `npm.cmd run build`를 실행한다.
-- [ ] 명시적으로 필요하지 않으면 dev server는 띄우지 않고 수동 확인 항목을 점검한다.
+- [x] 배포하거나 커밋하기 전 `npm.cmd run build`를 실행한다.
+- [x] 명시적으로 필요하지 않으면 dev server는 띄우지 않고 수동 확인 항목을 점검한다.
   - 술 이름만으로 새 사케 기록을 저장할 수 있다.
   - 사진 여러 장이 유지된다.
   - 날짜 기본값이 오늘로 들어간다.
@@ -213,6 +213,11 @@ Phase 2 결정:
   - 목록 정보가 사케 spec에 맞게 보인다.
   - 상세 화면이 revised spec의 정보 순서를 따른다.
   - 수정 모드에서 작성 중 변경사항 보호가 동작한다.
+
+Phase 7 확인:
+
+- `npm.cmd run typecheck`, `npm.cmd run typecheck:functions`, `npm.cmd run build` 통과.
+- dev server는 띄우지 않고, 수동 확인 항목은 현재 코드 흐름 기준으로 점검했다.
 
 ## MVP 이후로 미룰 것
 
