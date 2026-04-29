@@ -16,6 +16,7 @@ import {
   loadSakeRecords,
   loadSakeTags,
   saveSakeRecord,
+  setCloudStorageEnabled,
   updateSakeRecord,
 } from "./lib/storage";
 import type {
@@ -325,9 +326,17 @@ function App() {
   }, []);
 
   useEffect(() => {
+    setCloudStorageEnabled(auth.status === "authenticated");
+  }, [auth.status]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function syncTags() {
+      if (auth.status === "loading") {
+        return;
+      }
+
       try {
         const nextTags = await loadSakeTags();
         if (!cancelled) {
@@ -344,12 +353,16 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [auth.status]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function syncRecords() {
+      if (auth.status === "loading") {
+        return;
+      }
+
       setIsLoading(true);
       try {
         const nextRecords = await loadSakeRecords();
@@ -372,12 +385,16 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [auth.status]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function syncSelectedEntry() {
+      if (auth.status === "loading") {
+        return;
+      }
+
       if (route.page !== "detail" && route.page !== "edit") {
         if (!cancelled) {
           setSelectedEntry(null);
@@ -402,7 +419,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [route]);
+  }, [auth.status, route]);
 
   function updateDraft<K extends keyof SakeDraft>(key: K, value: SakeDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -524,7 +541,9 @@ function App() {
       setDraft(createInitialSakeDraft());
       setEditBaseline(null);
       navigateTo({ page: "detail", id: entry.id });
-      setStatusMessage("이 기기에 저장했습니다.");
+      setStatusMessage(
+        auth.status === "authenticated" ? "클라우드에 저장했습니다." : "이 기기에 저장했습니다.",
+      );
     } catch {
       setStatusMessage("저장에 실패했습니다. 다시 시도해 주세요.");
     } finally {
@@ -1178,7 +1197,7 @@ function App() {
             {auth.status === "authenticated" ? (
               <>
                 {auth.user.avatarUrl ? <img src={auth.user.avatarUrl} alt="" /> : null}
-                <span>{auth.user.displayName ?? auth.user.email ?? "Google 사용자"} · Local first</span>
+                <span>{auth.user.displayName ?? auth.user.email ?? "Google 사용자"} · Cloud sync</span>
               </>
             ) : (
               <span>{auth.status === "loading" ? "로그인 확인 중" : "로컬 모드"}</span>

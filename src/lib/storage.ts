@@ -32,6 +32,8 @@ const SAKE_RECORD_TAGS_STORE = "record_tags";
 const CLOUD_LOGS_PATH = "/api/cloud/logs";
 const CLOUD_LOG_PATH = "/api/cloud/log";
 const CLOUD_IMAGE_SRC_PREFIX = "/api/images?key=";
+const CLOUD_SAKE_RECORDS_PATH = "/api/sake-records";
+const CLOUD_TAGS_PATH = "/api/tags?drink_type=sake";
 const LOCAL_OWNER_ID = "local";
 const MAX_CUSTOM_TAG_LABEL_LENGTH = 20;
 
@@ -800,6 +802,11 @@ export async function seedSakeTagsIfNeeded(): Promise<void> {
 }
 
 export async function loadSakeTags(ownerId = LOCAL_OWNER_ID): Promise<SakeTag[]> {
+  if (cloudStorageEnabled) {
+    const tags = await cloudRequest<SakeTag[]>(CLOUD_TAGS_PATH);
+    return sortSakeTags(tags.map((tag) => ({ ...tag, is_default: Boolean(tag.is_default) })));
+  }
+
   await seedSakeTagsIfNeeded();
 
   return withStores<SakeTag[]>(
@@ -837,6 +844,18 @@ export async function createCustomSakeTag(
 
   const normalizedLabel = trimmedLabel.slice(0, MAX_CUSTOM_TAG_LABEL_LENGTH);
   const compareLabel = normalizeSakeTagLabelForCompare(normalizedLabel);
+
+  if (cloudStorageEnabled) {
+    const tag = await cloudRequest<SakeTag>(CLOUD_TAGS_PATH, {
+      method: "POST",
+      body: JSON.stringify({
+        drink_type: "sake",
+        tag_group: tagGroup,
+        label: normalizedLabel,
+      }),
+    });
+    return { ...tag, is_default: Boolean(tag.is_default) };
+  }
 
   return withStores<SakeTag | null>(
     "readwrite",
@@ -898,7 +917,36 @@ function buildSakeRecordEntry(
   };
 }
 
+function normalizeCloudSakeEntry(entry: SakeRecordEntry): SakeRecordEntry {
+  return {
+    ...entry,
+    tags: sortSakeTags(entry.tags.map((tag) => ({ ...tag, is_default: Boolean(tag.is_default) }))),
+  };
+}
+
+function buildCloudSakePayload(
+  draft: SakeDraft,
+  recordId: string,
+  createdAt: string,
+  updatedAt: string,
+) {
+  const { record, images, recordTags } = buildSakeEntryFromDraft(
+    draft,
+    recordId,
+    LOCAL_OWNER_ID,
+    createdAt,
+    updatedAt,
+  );
+
+  return { record, images, record_tags: recordTags };
+}
+
 export async function loadSakeRecords(ownerId = LOCAL_OWNER_ID): Promise<SakeRecordEntry[]> {
+  if (cloudStorageEnabled) {
+    const entries = await cloudRequest<SakeRecordEntry[]>(CLOUD_SAKE_RECORDS_PATH);
+    return entries.map(normalizeCloudSakeEntry);
+  }
+
   return withStores<SakeRecordEntry[]>(
     "readonly",
     [SAKE_RECORDS_STORE, SAKE_IMAGES_STORE, SAKE_RECORD_TAGS_STORE, SAKE_TAGS_STORE],
@@ -955,6 +1003,20 @@ export async function getSakeRecordById(
   id: string,
   ownerId = LOCAL_OWNER_ID,
 ): Promise<SakeRecordEntry | undefined> {
+  if (cloudStorageEnabled) {
+    try {
+      const entry = await cloudRequest<SakeRecordEntry>(
+        `${CLOUD_SAKE_RECORDS_PATH}/${encodeURIComponent(id)}`,
+      );
+      return normalizeCloudSakeEntry(entry);
+    } catch (error) {
+      if (error instanceof CloudStorageError && error.status === 404) {
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
   return withStores<SakeRecordEntry | undefined>(
     "readonly",
     [SAKE_RECORDS_STORE, SAKE_IMAGES_STORE, SAKE_RECORD_TAGS_STORE, SAKE_TAGS_STORE],
@@ -986,6 +1048,15 @@ export async function saveSakeRecord(
 ): Promise<SakeRecordEntry> {
   const now = new Date().toISOString();
   const recordId = crypto.randomUUID();
+
+  if (cloudStorageEnabled) {
+    const entry = await cloudRequest<SakeRecordEntry>(CLOUD_SAKE_RECORDS_PATH, {
+      method: "POST",
+      body: JSON.stringify(buildCloudSakePayload(draft, recordId, now, now)),
+    });
+    return normalizeCloudSakeEntry(entry);
+  }
+
   const { record, images, recordTags } = buildSakeEntryFromDraft(
     draft,
     recordId,
@@ -1024,6 +1095,18 @@ export async function updateSakeRecord(
   draft: SakeDraft,
   ownerId = LOCAL_OWNER_ID,
 ): Promise<SakeRecordEntry> {
+  if (cloudStorageEnabled) {
+    const now = new Date().toISOString();
+    const entry = await cloudRequest<SakeRecordEntry>(
+      `${CLOUD_SAKE_RECORDS_PATH}/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(buildCloudSakePayload(draft, id, now, now)),
+      },
+    );
+    return normalizeCloudSakeEntry(entry);
+  }
+
   return withStores<SakeRecordEntry>(
     "readwrite",
     [SAKE_RECORDS_STORE, SAKE_IMAGES_STORE, SAKE_RECORD_TAGS_STORE, SAKE_TAGS_STORE],
@@ -1082,6 +1165,13 @@ export async function updateSakeRecord(
 }
 
 export async function deleteSakeRecord(id: string, ownerId = LOCAL_OWNER_ID): Promise<void> {
+  if (cloudStorageEnabled) {
+    await cloudRequest<void>(`${CLOUD_SAKE_RECORDS_PATH}/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    return;
+  }
+
   return withStores<void>(
     "readwrite",
     [SAKE_RECORDS_STORE, SAKE_IMAGES_STORE, SAKE_RECORD_TAGS_STORE],
