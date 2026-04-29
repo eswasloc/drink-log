@@ -6,20 +6,37 @@ import type {
   SensoryNote,
   TastingLog,
 } from "../types/models";
+import { DEFAULT_SAKE_TAGS } from "../constants/defaultTags";
 import { sortNegativeLast } from "../data/flavors";
 import { PROFILE_SECTIONS } from "../data/profiles";
+import type {
+  SakeDraft,
+  SakeImage,
+  SakeRecord,
+  SakeRecordEntry,
+  SakeRecordTag,
+  SakeTag,
+  SakeTagGroup,
+} from "../types/sake";
 
 const DB_NAME = "alcohol-log-db";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const BOTTLES_STORE = "bottles";
 const IMAGES_STORE = "images";
 const SENSORY_NOTES_STORE = "sensory_notes";
 const LEGACY_LOGS_STORE = "logs";
+const SAKE_RECORDS_STORE = "sake_records";
+const SAKE_IMAGES_STORE = "sake_images";
+const SAKE_TAGS_STORE = "tags";
+const SAKE_RECORD_TAGS_STORE = "record_tags";
 const CLOUD_LOGS_PATH = "/api/cloud/logs";
 const CLOUD_LOG_PATH = "/api/cloud/log";
 const CLOUD_IMAGE_SRC_PREFIX = "/api/images?key=";
+const LOCAL_OWNER_ID = "local";
+const MAX_CUSTOM_TAG_LABEL_LENGTH = 20;
 
 let cloudStorageEnabled = false;
+let defaultSakeTagsSeeded = false;
 
 export class CloudStorageError extends Error {
   status: number;
@@ -213,6 +230,44 @@ function openDatabase(): Promise<IDBDatabase> {
           keyPath: "bottle_id",
         });
         store.createIndex("profile", "profile", { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(SAKE_RECORDS_STORE)) {
+        const store = db.createObjectStore(SAKE_RECORDS_STORE, { keyPath: "id" });
+        store.createIndex("owner_id", "owner_id", { unique: false });
+        store.createIndex("drink_type", "drink_type", { unique: false });
+        store.createIndex("consumed_date", "consumed_date", { unique: false });
+        store.createIndex("updated_at", "updated_at", { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(SAKE_IMAGES_STORE)) {
+        const store = db.createObjectStore(SAKE_IMAGES_STORE, { keyPath: "id" });
+        store.createIndex("owner_id", "owner_id", { unique: false });
+        store.createIndex("record_id", "record_id", { unique: false });
+        store.createIndex("display_order", "display_order", { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(SAKE_TAGS_STORE)) {
+        const store = db.createObjectStore(SAKE_TAGS_STORE, { keyPath: "id" });
+        store.createIndex("owner_id", "owner_id", { unique: false });
+        store.createIndex("drink_type", "drink_type", { unique: false });
+        store.createIndex("tag_group", "tag_group", { unique: false });
+        store.createIndex("drink_type_tag_group", ["drink_type", "tag_group"], {
+          unique: false,
+        });
+      }
+
+      if (!db.objectStoreNames.contains(SAKE_RECORD_TAGS_STORE)) {
+        const store = db.createObjectStore(SAKE_RECORD_TAGS_STORE, {
+          keyPath: ["record_id", "tag_id"],
+        });
+        store.createIndex("record_id", "record_id", { unique: false });
+        store.createIndex("tag_id", "tag_id", { unique: false });
+      }
+
+      if (transaction && db.objectStoreNames.contains(SAKE_TAGS_STORE)) {
+        const tagsStore = transaction.objectStore(SAKE_TAGS_STORE);
+        putMissingDefaultSakeTags(tagsStore, [], new Date().toISOString());
       }
 
       if (
@@ -578,6 +633,480 @@ export async function deleteLog(id: string): Promise<void> {
 
         const sensoryRequest = stores[SENSORY_NOTES_STORE].delete(id);
         sensoryRequest.onerror = () => reject(sensoryRequest.error);
+
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    },
+  );
+}
+
+function normalizeOptionalText(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeSelectedTagIds(tagIds: string[]) {
+  return Array.from(new Set(tagIds.map((tagId) => tagId.trim()).filter(Boolean)));
+}
+
+function normalizeSakeTagLabelForCompare(label: string) {
+  return label.trim().toLocaleLowerCase();
+}
+
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+function putMissingDefaultSakeTags(
+  store: IDBObjectStore,
+  existingTags: SakeTag[],
+  createdAt: string,
+) {
+  const existingIds = new Set(existingTags.map((tag) => tag.id));
+
+  DEFAULT_SAKE_TAGS.forEach((tag) => {
+    if (!existingIds.has(tag.id)) {
+      store.put({
+        ...tag,
+        created_at: createdAt,
+      } satisfies SakeTag);
+    }
+  });
+}
+
+function createSakeImageKey(ownerId: string, recordId: string, image: SakeDraft["images"][number]) {
+  const extension = image.file_name.split(".").pop() || image.mime_type.split("/").pop() || "jpg";
+  return `images/${ownerId}/sake/${recordId}/${image.id}.${extension}`;
+}
+
+function buildSakeEntryFromDraft(
+  draft: SakeDraft,
+  recordId: string,
+  ownerId: string,
+  createdAt: string,
+  updatedAt: string,
+  existingImagesById = new Map<string, SakeImage>(),
+): { record: SakeRecord; images: SakeImage[]; recordTags: SakeRecordTag[] } {
+  const name = draft.name.trim();
+  if (!name) {
+    throw new Error("Sake record name is required.");
+  }
+
+  const record: SakeRecord = {
+    id: recordId,
+    owner_id: ownerId,
+    drink_type: "sake",
+    name,
+    region: normalizeOptionalText(draft.region),
+    brewery: normalizeOptionalText(draft.brewery),
+    rice: normalizeOptionalText(draft.rice),
+    sake_type: normalizeOptionalText(draft.sake_type),
+    sake_meter_value: normalizeOptionalText(draft.sake_meter_value),
+    abv: normalizeOptionalText(draft.abv),
+    volume: normalizeOptionalText(draft.volume),
+    price: normalizeOptionalText(draft.price),
+    drink_again: draft.drink_again,
+    sweet_dry: draft.sweet_dry,
+    aroma_intensity: draft.aroma_intensity,
+    acidity: draft.acidity,
+    clean_umami: draft.clean_umami,
+    one_line_note: normalizeOptionalText(draft.one_line_note),
+    place: normalizeOptionalText(draft.place),
+    consumed_date: draft.consumed_date,
+    companions: normalizeOptionalText(draft.companions),
+    food_pairing: normalizeOptionalText(draft.food_pairing),
+    created_at: createdAt,
+    updated_at: updatedAt,
+  };
+
+  const images = draft.images.map((image, index) => {
+    const existingImage = existingImagesById.get(image.id);
+
+    return {
+      id: image.id,
+      owner_id: ownerId,
+      record_id: recordId,
+      image_key: existingImage?.image_key ?? createSakeImageKey(ownerId, recordId, image),
+      thumbnail_key:
+        existingImage?.thumbnail_key ?? `thumbnails/${ownerId}/sake/${recordId}/${image.id}.webp`,
+      data_url: image.data_url,
+      thumbnail_data_url: image.thumbnail_data_url ?? existingImage?.thumbnail_data_url ?? null,
+      mime_type: image.mime_type,
+      file_name: image.file_name,
+      display_order: index,
+      created_at: existingImage?.created_at ?? createdAt,
+    };
+  });
+
+  const recordTags = normalizeSelectedTagIds(draft.selected_tag_ids).map((tagId) => ({
+    record_id: recordId,
+    tag_id: tagId,
+    created_at: updatedAt,
+  }));
+
+  return { record, images, recordTags };
+}
+
+async function getAllSakeTagsFromStore(store: IDBObjectStore) {
+  const tags = await requestToPromise<SakeTag[]>(store.getAll());
+  return tags ?? [];
+}
+
+function sortSakeTags(tags: SakeTag[]) {
+  const groupOrder: Record<SakeTagGroup, number> = { taste: 0, aroma: 1, mood: 2 };
+  const defaultOrder = new Map(DEFAULT_SAKE_TAGS.map((tag, index) => [tag.id, index]));
+
+  return [...tags].sort((left, right) => {
+    const groupCompare = groupOrder[left.tag_group] - groupOrder[right.tag_group];
+    if (groupCompare !== 0) {
+      return groupCompare;
+    }
+
+    const leftDefaultOrder = defaultOrder.get(left.id);
+    const rightDefaultOrder = defaultOrder.get(right.id);
+    if (leftDefaultOrder !== undefined || rightDefaultOrder !== undefined) {
+      return (leftDefaultOrder ?? Number.MAX_SAFE_INTEGER) - (rightDefaultOrder ?? Number.MAX_SAFE_INTEGER);
+    }
+
+    return left.created_at.localeCompare(right.created_at) || left.label.localeCompare(right.label);
+  });
+}
+
+export async function seedSakeTagsIfNeeded(): Promise<void> {
+  if (defaultSakeTagsSeeded) {
+    return;
+  }
+
+  await withStores<void>(
+    "readwrite",
+    [SAKE_TAGS_STORE],
+    async (stores, resolve, reject) => {
+      try {
+        const store = stores[SAKE_TAGS_STORE];
+        const currentTags = await getAllSakeTagsFromStore(store);
+        putMissingDefaultSakeTags(store, currentTags, new Date().toISOString());
+        defaultSakeTagsSeeded = true;
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    },
+  );
+}
+
+export async function loadSakeTags(ownerId = LOCAL_OWNER_ID): Promise<SakeTag[]> {
+  await seedSakeTagsIfNeeded();
+
+  return withStores<SakeTag[]>(
+    "readonly",
+    [SAKE_TAGS_STORE],
+    async (stores, resolve, reject) => {
+      try {
+        const store = stores[SAKE_TAGS_STORE];
+        const tags = await getAllSakeTagsFromStore(store);
+        resolve(
+          sortSakeTags(
+            tags.filter(
+              (tag) =>
+                tag.drink_type === "sake" &&
+                (tag.owner_id === null || tag.owner_id === ownerId),
+            ),
+          ),
+        );
+      } catch (error) {
+        reject(error);
+      }
+    },
+  );
+}
+
+export async function createCustomSakeTag(
+  tagGroup: SakeTagGroup,
+  label: string,
+  ownerId = LOCAL_OWNER_ID,
+): Promise<SakeTag | null> {
+  const trimmedLabel = label.trim();
+  if (!trimmedLabel) {
+    return null;
+  }
+
+  const normalizedLabel = trimmedLabel.slice(0, MAX_CUSTOM_TAG_LABEL_LENGTH);
+  const compareLabel = normalizeSakeTagLabelForCompare(normalizedLabel);
+
+  return withStores<SakeTag | null>(
+    "readwrite",
+    [SAKE_TAGS_STORE],
+    async (stores, resolve, reject) => {
+      try {
+        const store = stores[SAKE_TAGS_STORE];
+        const tags = await getAllSakeTagsFromStore(store);
+        const existingTag = tags.find(
+          (tag) =>
+            tag.drink_type === "sake" &&
+            tag.tag_group === tagGroup &&
+            normalizeSakeTagLabelForCompare(tag.label) === compareLabel &&
+            (tag.owner_id === null || tag.owner_id === ownerId),
+        );
+
+        if (existingTag) {
+          resolve(existingTag);
+          return;
+        }
+
+        const now = new Date().toISOString();
+        const tag: SakeTag = {
+          id: crypto.randomUUID(),
+          owner_id: ownerId,
+          drink_type: "sake",
+          tag_group: tagGroup,
+          label: normalizedLabel,
+          is_default: false,
+          created_at: now,
+        };
+
+        await requestToPromise(store.put(tag));
+        resolve(tag);
+      } catch (error) {
+        reject(error);
+      }
+    },
+  );
+}
+
+function buildSakeRecordEntry(
+  record: SakeRecord,
+  images: SakeImage[],
+  recordTags: SakeRecordTag[],
+  tags: SakeTag[],
+): SakeRecordEntry {
+  const tagsById = new Map(tags.map((tag) => [tag.id, tag]));
+  const selectedTags = recordTags
+    .map((recordTag) => tagsById.get(recordTag.tag_id))
+    .filter((tag): tag is SakeTag => Boolean(tag));
+
+  return {
+    id: record.id,
+    record,
+    images: [...images].sort((left, right) => left.display_order - right.display_order),
+    tags: sortSakeTags(selectedTags),
+    record_tags: recordTags,
+  };
+}
+
+export async function loadSakeRecords(ownerId = LOCAL_OWNER_ID): Promise<SakeRecordEntry[]> {
+  return withStores<SakeRecordEntry[]>(
+    "readonly",
+    [SAKE_RECORDS_STORE, SAKE_IMAGES_STORE, SAKE_RECORD_TAGS_STORE, SAKE_TAGS_STORE],
+    async (stores, resolve, reject) => {
+      try {
+        const [records, images, recordTags, tags] = await Promise.all([
+          getAllFromStore<SakeRecord>(stores[SAKE_RECORDS_STORE]),
+          getAllFromStore<SakeImage>(stores[SAKE_IMAGES_STORE]),
+          getAllFromStore<SakeRecordTag>(stores[SAKE_RECORD_TAGS_STORE]),
+          getAllFromStore<SakeTag>(stores[SAKE_TAGS_STORE]),
+        ]);
+
+        const imagesByRecordId = new Map<string, SakeImage[]>();
+        images.forEach((image) => {
+          if (image.owner_id !== ownerId) {
+            return;
+          }
+          const group = imagesByRecordId.get(image.record_id) ?? [];
+          group.push(image);
+          imagesByRecordId.set(image.record_id, group);
+        });
+
+        const recordTagsByRecordId = new Map<string, SakeRecordTag[]>();
+        recordTags.forEach((recordTag) => {
+          const group = recordTagsByRecordId.get(recordTag.record_id) ?? [];
+          group.push(recordTag);
+          recordTagsByRecordId.set(recordTag.record_id, group);
+        });
+
+        resolve(
+          records
+            .filter((record) => record.owner_id === ownerId && record.drink_type === "sake")
+            .map((record) =>
+              buildSakeRecordEntry(
+                record,
+                imagesByRecordId.get(record.id) ?? [],
+                recordTagsByRecordId.get(record.id) ?? [],
+                tags,
+              ),
+            )
+            .sort((left, right) =>
+              right.record.consumed_date.localeCompare(left.record.consumed_date) ||
+              right.record.created_at.localeCompare(left.record.created_at),
+            ),
+        );
+      } catch (error) {
+        reject(error);
+      }
+    },
+  );
+}
+
+export async function getSakeRecordById(
+  id: string,
+  ownerId = LOCAL_OWNER_ID,
+): Promise<SakeRecordEntry | undefined> {
+  return withStores<SakeRecordEntry | undefined>(
+    "readonly",
+    [SAKE_RECORDS_STORE, SAKE_IMAGES_STORE, SAKE_RECORD_TAGS_STORE, SAKE_TAGS_STORE],
+    async (stores, resolve, reject) => {
+      try {
+        const record = await getByKey<SakeRecord>(stores[SAKE_RECORDS_STORE], id);
+        if (!record || record.owner_id !== ownerId || record.drink_type !== "sake") {
+          resolve(undefined);
+          return;
+        }
+
+        const [images, recordTags, tags] = await Promise.all([
+          getAllByIndex<SakeImage>(stores[SAKE_IMAGES_STORE], "record_id", id),
+          getAllByIndex<SakeRecordTag>(stores[SAKE_RECORD_TAGS_STORE], "record_id", id),
+          getAllFromStore<SakeTag>(stores[SAKE_TAGS_STORE]),
+        ]);
+
+        resolve(buildSakeRecordEntry(record, images, recordTags, tags));
+      } catch (error) {
+        reject(error);
+      }
+    },
+  );
+}
+
+export async function saveSakeRecord(
+  draft: SakeDraft,
+  ownerId = LOCAL_OWNER_ID,
+): Promise<SakeRecordEntry> {
+  const now = new Date().toISOString();
+  const recordId = crypto.randomUUID();
+  const { record, images, recordTags } = buildSakeEntryFromDraft(
+    draft,
+    recordId,
+    ownerId,
+    now,
+    now,
+  );
+
+  return withStores<SakeRecordEntry>(
+    "readwrite",
+    [SAKE_RECORDS_STORE, SAKE_IMAGES_STORE, SAKE_RECORD_TAGS_STORE, SAKE_TAGS_STORE],
+    async (stores, resolve, reject) => {
+      try {
+        await requestToPromise(stores[SAKE_RECORDS_STORE].put(record));
+
+        await Promise.all(
+          images.map((image) => requestToPromise(stores[SAKE_IMAGES_STORE].put(image))),
+        );
+        await Promise.all(
+          recordTags.map((recordTag) =>
+            requestToPromise(stores[SAKE_RECORD_TAGS_STORE].put(recordTag)),
+          ),
+        );
+
+        const tags = await getAllFromStore<SakeTag>(stores[SAKE_TAGS_STORE]);
+        resolve(buildSakeRecordEntry(record, images, recordTags, tags));
+      } catch (error) {
+        reject(error);
+      }
+    },
+  );
+}
+
+export async function updateSakeRecord(
+  id: string,
+  draft: SakeDraft,
+  ownerId = LOCAL_OWNER_ID,
+): Promise<SakeRecordEntry> {
+  return withStores<SakeRecordEntry>(
+    "readwrite",
+    [SAKE_RECORDS_STORE, SAKE_IMAGES_STORE, SAKE_RECORD_TAGS_STORE, SAKE_TAGS_STORE],
+    async (stores, resolve, reject) => {
+      try {
+        const existingRecord = await getByKey<SakeRecord>(stores[SAKE_RECORDS_STORE], id);
+        if (!existingRecord || existingRecord.owner_id !== ownerId) {
+          reject(new Error("Sake record not found."));
+          return;
+        }
+
+        const [existingImages, existingRecordTags] = await Promise.all([
+          getAllByIndex<SakeImage>(stores[SAKE_IMAGES_STORE], "record_id", id),
+          getAllByIndex<SakeRecordTag>(stores[SAKE_RECORD_TAGS_STORE], "record_id", id),
+        ]);
+        const existingImagesById = new Map(
+          existingImages.map((image) => [image.id, image]),
+        );
+        const now = new Date().toISOString();
+        const { record, images, recordTags } = buildSakeEntryFromDraft(
+          draft,
+          id,
+          ownerId,
+          existingRecord.created_at,
+          now,
+          existingImagesById,
+        );
+        const nextImageIds = new Set(images.map((image) => image.id));
+        const nextTagIds = new Set(recordTags.map((recordTag) => recordTag.tag_id));
+
+        await Promise.all([
+          requestToPromise(stores[SAKE_RECORDS_STORE].put(record)),
+          ...existingImages
+            .filter((image) => !nextImageIds.has(image.id))
+            .map((image) => requestToPromise(stores[SAKE_IMAGES_STORE].delete(image.id))),
+          ...images.map((image) => requestToPromise(stores[SAKE_IMAGES_STORE].put(image))),
+          ...existingRecordTags
+            .filter((recordTag) => !nextTagIds.has(recordTag.tag_id))
+            .map((recordTag) =>
+              requestToPromise(
+                stores[SAKE_RECORD_TAGS_STORE].delete([recordTag.record_id, recordTag.tag_id]),
+              ),
+            ),
+          ...recordTags.map((recordTag) =>
+            requestToPromise(stores[SAKE_RECORD_TAGS_STORE].put(recordTag)),
+          ),
+        ]);
+
+        const tags = await getAllFromStore<SakeTag>(stores[SAKE_TAGS_STORE]);
+        resolve(buildSakeRecordEntry(record, images, recordTags, tags));
+      } catch (error) {
+        reject(error);
+      }
+    },
+  );
+}
+
+export async function deleteSakeRecord(id: string, ownerId = LOCAL_OWNER_ID): Promise<void> {
+  return withStores<void>(
+    "readwrite",
+    [SAKE_RECORDS_STORE, SAKE_IMAGES_STORE, SAKE_RECORD_TAGS_STORE],
+    async (stores, resolve, reject) => {
+      try {
+        const record = await getByKey<SakeRecord>(stores[SAKE_RECORDS_STORE], id);
+        if (!record || record.owner_id !== ownerId) {
+          resolve();
+          return;
+        }
+
+        const [images, recordTags] = await Promise.all([
+          getAllByIndex<SakeImage>(stores[SAKE_IMAGES_STORE], "record_id", id),
+          getAllByIndex<SakeRecordTag>(stores[SAKE_RECORD_TAGS_STORE], "record_id", id),
+        ]);
+
+        await Promise.all([
+          requestToPromise(stores[SAKE_RECORDS_STORE].delete(id)),
+          ...images.map((image) => requestToPromise(stores[SAKE_IMAGES_STORE].delete(image.id))),
+          ...recordTags.map((recordTag) =>
+            requestToPromise(
+              stores[SAKE_RECORD_TAGS_STORE].delete([recordTag.record_id, recordTag.tag_id]),
+            ),
+          ),
+        ]);
 
         resolve();
       } catch (error) {

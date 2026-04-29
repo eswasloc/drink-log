@@ -79,22 +79,30 @@ Phase 0 결정:
 
 ## Phase 2 - 로컬 저장소 재구성
 
-- [ ] IndexedDB 버전을 올리고 사케용 store를 만든다.
+- [x] IndexedDB 버전을 올리고 사케용 store를 만든다.
   - `sake_records`
   - `sake_images`
   - `tags`
   - `record_tags`
-- [ ] `taste`, `aroma`, `mood` 그룹의 기본 사케 태그를 seed한다.
-- [ ] 커스텀 태그 추가 기능을 만든다.
+- [x] `taste`, `aroma`, `mood` 그룹의 기본 사케 태그를 seed한다.
+- [x] 커스텀 태그 추가 기능을 만든다.
   - 앞뒤 공백 제거
   - 중복 방지
   - 최대 길이 제한
   - 빈 문자열 저장 방지
-- [ ] 기록별 선택 태그를 저장한다.
-- [ ] 기록 하나에 여러 이미지를 저장한다.
-- [ ] 첫 번째 이미지를 대표 이미지로 사용한다.
-- [ ] 기존 alcohol-log 기록을 새 사케 흐름으로 마이그레이션할지, 새 흐름 밖의
+- [x] 기록별 선택 태그를 저장한다.
+- [x] 기록 하나에 여러 이미지를 저장한다.
+- [x] 첫 번째 이미지를 대표 이미지로 사용한다.
+- [x] 기존 alcohol-log 기록을 새 사케 흐름으로 마이그레이션할지, 새 흐름 밖의
       legacy 데이터로 둘지 결정한다.
+
+Phase 2 결정:
+
+- 기존 alcohol-log 기록은 자동 마이그레이션하지 않고 legacy 데이터로 둔다.
+- 새 사케 흐름은 `sake_records`, `sake_images`, `tags`, `record_tags` store를 사용한다.
+- 리스트/상세에서 대표 이미지는 `display_order = 0`인 첫 번째 이미지로 판단한다.
+- 기존 Bottle / TastingLog 저장 로직은 Phase 3-4에서 화면 흐름을 사케용으로 바꾸며
+  더 이상 앱 진입 흐름에 걸리지 않게 정리한다.
 
 ## Phase 3 - 작성 화면 리빌드
 

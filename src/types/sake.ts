@@ -39,6 +39,11 @@ export interface SakeImage {
   owner_id: string;
   record_id: string;
   image_key: string;
+  thumbnail_key: string | null;
+  data_url: string;
+  thumbnail_data_url: string | null;
+  mime_type: string;
+  file_name: string;
   display_order: number;
   created_at: string;
 }
@@ -57,6 +62,14 @@ export interface SakeRecordTag {
   record_id: string;
   tag_id: string;
   created_at: string;
+}
+
+export interface SakeRecordEntry {
+  id: string;
+  record: SakeRecord;
+  images: SakeImage[];
+  tags: SakeTag[];
+  record_tags: SakeRecordTag[];
 }
 
 export interface SakeDraftImage {

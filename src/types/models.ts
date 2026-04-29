@@ -79,6 +79,7 @@ export type {
   SakeDraftImage,
   SakeImage,
   SakeRecord,
+  SakeRecordEntry,
   SakeRecordTag,
   SakeTag,
   SakeTagGroup,
