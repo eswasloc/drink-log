@@ -186,11 +186,39 @@ function getRatingLabel(
 }
 
 function getEntrySubtitle(entry: SakeRecordEntry) {
-  return entry.record.sake_type || entry.record.region || "종류/지역 미입력";
+  const parts = [entry.record.sake_type, entry.record.region].filter(
+    (value): value is string => Boolean(value),
+  );
+
+  return parts.length > 0 ? parts.join(" · ") : "종류/지역 미입력";
 }
 
 function getPrimaryTags(entry: SakeRecordEntry) {
   return entry.tags.slice(0, 3);
+}
+
+function normalizeSearchText(value: string) {
+  return value.trim().toLocaleLowerCase();
+}
+
+function getSearchableText(entry: SakeRecordEntry) {
+  const { record } = entry;
+
+  return [
+    record.name,
+    record.region,
+    record.brewery,
+    record.sake_type,
+    record.rice,
+    record.place,
+    record.companions,
+    record.food_pairing,
+    record.one_line_note,
+    ...entry.tags.map((tag) => tag.label),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLocaleLowerCase();
 }
 
 function App() {
@@ -198,6 +226,7 @@ function App() {
   const [draft, setDraft] = useState<SakeDraft>(() => createInitialSakeDraft());
   const [tags, setTags] = useState<SakeTag[]>([]);
   const [records, setRecords] = useState<SakeRecordEntry[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedEntry, setSelectedEntry] = useState<SakeRecordEntry | null>(null);
   const [activeImage, setActiveImage] = useState<SakeDraftImage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -217,6 +246,14 @@ function App() {
   const canSave = draft.name.trim().length > 0;
   const hasUnsavedEdit =
     route.page === "edit" && editBaseline !== null && serializeDraft(draft) !== editBaseline;
+  const filteredRecords = useMemo(() => {
+    const query = normalizeSearchText(searchQuery);
+    if (!query) {
+      return records;
+    }
+
+    return records.filter((entry) => getSearchableText(entry).includes(query));
+  }, [records, searchQuery]);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -863,16 +900,34 @@ function App() {
               <p className="kicker">Archive</p>
               <h2>저장된 사케 기록</h2>
             </div>
-            <span className="badge">{records.length}개</span>
+            <span className="badge">
+              {filteredRecords.length}
+              {searchQuery.trim() ? `/${records.length}` : ""}개
+            </span>
+          </div>
+
+          <div className="list-toolbar">
+            <label className="search-field">
+              <span className="sr-only">사케 기록 검색</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="이름, 지역, 양조장, 태그, 장소, 동행, 안주, 메모 검색"
+              />
+            </label>
           </div>
 
           {isLoading ? <p className="empty-copy">불러오는 중...</p> : null}
           {!isLoading && records.length === 0 ? (
             <p className="empty-copy">아직 저장된 기록이 없습니다. 먼저 한 잔을 기록해 보세요.</p>
           ) : null}
+          {!isLoading && records.length > 0 && filteredRecords.length === 0 ? (
+            <p className="empty-copy">검색 결과가 없습니다.</p>
+          ) : null}
 
           <div className="log-list">
-            {records.map((entry) => (
+            {filteredRecords.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
@@ -899,6 +954,7 @@ function App() {
                   </div>
                   <div className="log-card-meta">
                     <span>{getDrinkAgainLabel(entry.record.drink_again)}</span>
+                    {entry.record.place ? <span>{entry.record.place}</span> : null}
                     <span>{entry.record.one_line_note || "메모 없음"}</span>
                   </div>
                   {getPrimaryTags(entry).length > 0 ? (
