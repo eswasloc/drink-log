@@ -59,7 +59,7 @@ export const DEFAULT_SAKE_TAGS: ReadonlyArray<DefaultSakeTag> = [
     owner_id: null,
     drink_type: "sake",
     tag_group: "taste",
-    label: "달큼함",
+    label: "달콤함",
     is_default: true,
   },
   {

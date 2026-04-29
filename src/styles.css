@@ -288,12 +288,18 @@ input,
 select,
 textarea {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--separator);
   border-radius: var(--radius-small);
   padding: 12px 14px;
   background: var(--surface-muted);
   color: var(--label);
   font-weight: 400;
+}
+
+input[type="date"] {
+  min-width: 0;
 }
 
 input:focus,
@@ -642,18 +648,6 @@ textarea:focus {
 
 .required-field {
   color: var(--label);
-}
-
-.required-field::after {
-  content: "필수";
-  width: fit-content;
-  margin-top: -4px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: rgba(0, 122, 255, 0.1);
-  color: var(--accent);
-  font-size: 0.68rem;
-  font-weight: 700;
 }
 
 .sake-basic-grid {
@@ -2105,11 +2099,6 @@ textarea:focus {
 
   .sake-basic-grid .required-field {
     grid-column: 1 / -1;
-  }
-
-  .required-field::after {
-    margin-top: -2px;
-    font-size: 0.62rem;
   }
 
   .sake-context-grid {

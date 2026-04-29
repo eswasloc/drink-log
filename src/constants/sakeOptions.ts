@@ -17,8 +17,8 @@ export const SWEET_DRY_OPTIONS: ReadonlyArray<{
   value: SweetDryValue;
   label: string;
 }> = [
-  { value: 1, label: "아주 달큼함" },
-  { value: 2, label: "달큼함" },
+  { value: 1, label: "아주 달콤함" },
+  { value: 2, label: "달콤함" },
   { value: 3, label: "보통" },
   { value: 4, label: "드라이함" },
   { value: 5, label: "아주 드라이함" },

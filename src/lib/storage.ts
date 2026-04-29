@@ -669,13 +669,28 @@ function putMissingDefaultSakeTags(
   existingTags: SakeTag[],
   createdAt: string,
 ) {
-  const existingIds = new Set(existingTags.map((tag) => tag.id));
+  const existingTagsById = new Map(existingTags.map((tag) => [tag.id, tag]));
 
   DEFAULT_SAKE_TAGS.forEach((tag) => {
-    if (!existingIds.has(tag.id)) {
+    const existingTag = existingTagsById.get(tag.id);
+    if (!existingTag) {
       store.put({
         ...tag,
         created_at: createdAt,
+      } satisfies SakeTag);
+      return;
+    }
+
+    if (
+      existingTag.label !== tag.label ||
+      existingTag.tag_group !== tag.tag_group ||
+      existingTag.drink_type !== tag.drink_type ||
+      existingTag.owner_id !== tag.owner_id ||
+      !existingTag.is_default
+    ) {
+      store.put({
+        ...existingTag,
+        ...tag,
       } satisfies SakeTag);
     }
   });

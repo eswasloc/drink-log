@@ -61,7 +61,7 @@ const EMPTY_TAG_INPUTS: Record<SakeTagGroup, string> = {
 };
 
 const RATING_GROUPS = [
-  { key: "sweet_dry", label: "달큼함 - 드라이함", options: SWEET_DRY_OPTIONS },
+  { key: "sweet_dry", label: "달콤함 - 드라이함", options: SWEET_DRY_OPTIONS },
   { key: "aroma_intensity", label: "은은함 - 화려함", options: AROMA_INTENSITY_OPTIONS },
   { key: "acidity", label: "산미", options: ACIDITY_OPTIONS },
   { key: "clean_umami", label: "깔끔함 - 감칠맛", options: CLEAN_UMAMI_OPTIONS },
@@ -1102,7 +1102,7 @@ function App() {
               <section className="detail-block">
                 <h3>평가 요약</h3>
                 <div className="sake-rating-summary">
-                  <span>달큼/드라이 · {getRatingLabel(selectedEntry.record.sweet_dry, SWEET_DRY_OPTIONS)}</span>
+                  <span>달콤/드라이 · {getRatingLabel(selectedEntry.record.sweet_dry, SWEET_DRY_OPTIONS)}</span>
                   <span>향 · {getRatingLabel(selectedEntry.record.aroma_intensity, AROMA_INTENSITY_OPTIONS)}</span>
                   <span>산미 · {getRatingLabel(selectedEntry.record.acidity, ACIDITY_OPTIONS)}</span>
                   <span>깔끔/감칠 · {getRatingLabel(selectedEntry.record.clean_umami, CLEAN_UMAMI_OPTIONS)}</span>

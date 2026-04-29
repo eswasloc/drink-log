@@ -116,7 +116,7 @@ INSERT OR IGNORE INTO tags (id, owner_id, drink_type, tag_group, label, is_defau
   ('tag_taste_rich', NULL, 'sake', 'taste', '진함', 1, CURRENT_TIMESTAMP),
   ('tag_taste_clean', NULL, 'sake', 'taste', '깔끔함', 1, CURRENT_TIMESTAMP),
   ('tag_taste_bitter', NULL, 'sake', 'taste', '쌉쌀함', 1, CURRENT_TIMESTAMP),
-  ('tag_taste_sweet', NULL, 'sake', 'taste', '달큼함', 1, CURRENT_TIMESTAMP),
+  ('tag_taste_sweet', NULL, 'sake', 'taste', '달콤함', 1, CURRENT_TIMESTAMP),
   ('tag_aroma_koji', NULL, 'sake', 'aroma', '누룩', 1, CURRENT_TIMESTAMP),
   ('tag_aroma_rice', NULL, 'sake', 'aroma', '쌀', 1, CURRENT_TIMESTAMP),
   ('tag_aroma_fruit', NULL, 'sake', 'aroma', '과일', 1, CURRENT_TIMESTAMP),
