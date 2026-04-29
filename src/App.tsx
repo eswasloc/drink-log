@@ -185,6 +185,10 @@ function getRatingLabel(
   return options.find((option) => option.value === value)?.label ?? "미선택";
 }
 
+function formatOptional(value: string | null) {
+  return value && value.trim() ? value : "미입력";
+}
+
 function getEntrySubtitle(entry: SakeRecordEntry) {
   const parts = [entry.record.sake_type, entry.record.region].filter(
     (value): value is string => Boolean(value),
@@ -800,6 +804,21 @@ function App() {
                       {activeTagInput === group.value ? (
                         <form
                           className="tag-inline-form"
+                          onBlur={(event) => {
+                            const nextFocusedElement = event.relatedTarget;
+                            if (
+                              nextFocusedElement instanceof Node &&
+                              event.currentTarget.contains(nextFocusedElement)
+                            ) {
+                              return;
+                            }
+
+                            setActiveTagInput(null);
+                            setTagInputs((current) => ({
+                              ...current,
+                              [group.value]: "",
+                            }));
+                          }}
                           onSubmit={(event) => {
                             event.preventDefault();
                             void handleAddTag(group.value);
@@ -974,6 +993,28 @@ function App() {
   }
 
   function renderDetail() {
+    const record = selectedEntry?.record;
+    const basicInfoRows = record
+      ? [
+          { label: "지역", value: formatOptional(record.region) },
+          { label: "양조장", value: formatOptional(record.brewery) },
+          { label: "쌀", value: formatOptional(record.rice) },
+          { label: "종류", value: formatOptional(record.sake_type) },
+          { label: "일본주도", value: formatOptional(record.sake_meter_value) },
+          { label: "도수", value: formatOptional(record.abv) },
+          { label: "용량", value: formatOptional(record.volume) },
+          { label: "가격", value: formatOptional(record.price) },
+        ]
+      : [];
+    const contextRows = record
+      ? [
+          { label: "장소", value: formatOptional(record.place) },
+          { label: "날짜", value: formatInputDate(record.consumed_date) },
+          { label: "동행", value: formatOptional(record.companions) },
+          { label: "안주", value: formatOptional(record.food_pairing) },
+        ]
+      : [];
+
     return (
       <main className="single-column">
         <section className="panel detail-panel sake-detail">
@@ -1030,56 +1071,85 @@ function App() {
                     {getEntrySubtitle(selectedEntry)} · {formatInputDate(selectedEntry.record.consumed_date)}
                   </p>
                 </div>
-                <div className="detail-actions">
-                  <button type="button" className="ghost-button" onClick={() => handleNavigate({ page: "logs" })}>
-                    목록
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => handleNavigate({ page: "edit", id: selectedEntry.id })}
-                  >
-                    수정
-                  </button>
-                  <button
-                    type="button"
-                    className="danger-button"
-                    onClick={() => void handleDeleteRecord(selectedEntry.id)}
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? "삭제 중..." : "삭제"}
-                  </button>
-                </div>
               </div>
 
-              <div className="detail-summary sake-summary">
-                <span>다시 마실까: {getDrinkAgainLabel(selectedEntry.record.drink_again)}</span>
-                <span>
-                  달큼/드라이: {getRatingLabel(selectedEntry.record.sweet_dry, SWEET_DRY_OPTIONS)}
-                </span>
-                <span>
-                  향: {getRatingLabel(selectedEntry.record.aroma_intensity, AROMA_INTENSITY_OPTIONS)}
-                </span>
-                <span>
-                  산미: {getRatingLabel(selectedEntry.record.acidity, ACIDITY_OPTIONS)}
-                </span>
-                <span>
-                  깔끔/감칠: {getRatingLabel(selectedEntry.record.clean_umami, CLEAN_UMAMI_OPTIONS)}
-                </span>
-              </div>
+              <section className="detail-block">
+                <h3>다시 마실까?</h3>
+                <p className="drink-again-value">
+                  {getDrinkAgainLabel(selectedEntry.record.drink_again)}
+                </p>
+              </section>
+
+              <section className="detail-block">
+                <h3>평가 요약</h3>
+                <div className="sake-rating-summary">
+                  <span>달큼/드라이 · {getRatingLabel(selectedEntry.record.sweet_dry, SWEET_DRY_OPTIONS)}</span>
+                  <span>향 · {getRatingLabel(selectedEntry.record.aroma_intensity, AROMA_INTENSITY_OPTIONS)}</span>
+                  <span>산미 · {getRatingLabel(selectedEntry.record.acidity, ACIDITY_OPTIONS)}</span>
+                  <span>깔끔/감칠 · {getRatingLabel(selectedEntry.record.clean_umami, CLEAN_UMAMI_OPTIONS)}</span>
+                </div>
+              </section>
 
               <div className="detail-note">
                 <h3>한줄 메모</h3>
                 <p>{selectedEntry.record.one_line_note || "남긴 메모가 없습니다."}</p>
               </div>
 
-              {selectedEntry.tags.length > 0 ? (
+              <section className="detail-block">
+                <h3>특성 태그</h3>
                 <div className="log-flavor-chips sake-tag-chips detail-tags">
-                  {selectedEntry.tags.map((tag) => (
-                    <span key={tag.id}>{tag.label}</span>
-                  ))}
+                  {selectedEntry.tags.length > 0 ? (
+                    selectedEntry.tags.map((tag) => <span key={tag.id}>{tag.label}</span>)
+                  ) : (
+                    <em>선택한 태그가 없습니다.</em>
+                  )}
                 </div>
-              ) : null}
+              </section>
+
+              <section className="detail-block">
+                <h3>기본 정보</h3>
+                <dl className="detail-info-grid">
+                  {basicInfoRows.map((item) => (
+                    <div key={item.label}>
+                      <dt>{item.label}</dt>
+                      <dd>{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+
+              <section className="detail-block">
+                <h3>외부 정보</h3>
+                <dl className="detail-info-grid">
+                  {contextRows.map((item) => (
+                    <div key={item.label}>
+                      <dt>{item.label}</dt>
+                      <dd>{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+
+              <div className="detail-actions detail-actions-bottom">
+                <button type="button" className="ghost-button" onClick={() => handleNavigate({ page: "logs" })}>
+                  목록
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => handleNavigate({ page: "edit", id: selectedEntry.id })}
+                >
+                  수정
+                </button>
+                <button
+                  type="button"
+                  className="danger-button"
+                  onClick={() => void handleDeleteRecord(selectedEntry.id)}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "삭제 중..." : "삭제"}
+                </button>
+              </div>
             </>
           ) : null}
         </section>
