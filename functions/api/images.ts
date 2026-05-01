@@ -13,14 +13,18 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
 
   const image = await getDatabase(env)
     .prepare(
-      `SELECT mime_type FROM sake_images
-       WHERE owner_id = ? AND (image_key = ? OR thumbnail_key = ?)`,
+      `SELECT owner_id, mime_type FROM sake_images
+       WHERE image_key = ? OR thumbnail_key = ?`,
     )
-    .bind(session.userId, key, key)
-    .first<{ mime_type: string }>();
+    .bind(key, key)
+    .first<{ owner_id: string; mime_type: string }>();
 
   if (!image) {
     return new Response("Not found", { status: 404 });
+  }
+
+  if (image.owner_id !== session.userId) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   const object = await getImagesBucket(env).get(key);

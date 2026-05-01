@@ -358,6 +358,24 @@ async function loadEntries(env: AppEnv, ownerId: string, recordId?: string, quer
   );
 }
 
+async function getRecordOwner(env: AppEnv, recordId: string) {
+  return getDatabase(env)
+    .prepare("SELECT owner_id FROM sake_records WHERE id = ? AND drink_type = 'sake'")
+    .bind(recordId)
+    .first<{ owner_id: string }>();
+}
+
+async function authorizeRecordAccess(env: AppEnv, ownerId: string, recordId: string) {
+  const record = await getRecordOwner(env, recordId);
+  if (!record) {
+    return json({ error: "not_found" }, { status: 404 });
+  }
+  if (record.owner_id !== ownerId) {
+    return json({ error: "forbidden" }, { status: 403 });
+  }
+  return null;
+}
+
 async function assertTagsAreUsable(env: AppEnv, ownerId: string, tagIds: string[]) {
   if (tagIds.length === 0) {
     return [];
@@ -465,6 +483,11 @@ export async function getSakeRecord(request: Request, env: AppEnv, id: string): 
     return session.response;
   }
 
+  const accessError = await authorizeRecordAccess(env, session.userId, id);
+  if (accessError) {
+    return accessError;
+  }
+
   const entry = (await loadEntries(env, session.userId, id))[0];
   return entry ? json(entry) : json({ error: "not_found" }, { status: 404 });
 }
@@ -533,9 +556,14 @@ export async function updateSakeRecord(request: Request, env: AppEnv, id: string
     return session.response;
   }
 
+  const accessError = await authorizeRecordAccess(env, session.userId, id);
+  if (accessError) {
+    return accessError;
+  }
+
   const existing = await getDatabase(env)
-    .prepare("SELECT * FROM sake_records WHERE owner_id = ? AND id = ?")
-    .bind(session.userId, id)
+    .prepare("SELECT * FROM sake_records WHERE id = ?")
+    .bind(id)
     .first<SakeRecord>();
   if (!existing) {
     return json({ error: "not_found" }, { status: 404 });
@@ -615,6 +643,11 @@ export async function deleteSakeRecord(request: Request, env: AppEnv, id: string
   }
 
   const db = getDatabase(env);
+  const accessError = await authorizeRecordAccess(env, session.userId, id);
+  if (accessError) {
+    return accessError;
+  }
+
   const images = await db
     .prepare("SELECT image_key, thumbnail_key FROM sake_images WHERE owner_id = ? AND record_id = ?")
     .bind(session.userId, id)
@@ -635,12 +668,9 @@ export async function addSakeRecordImage(request: Request, env: AppEnv, recordId
     return session.response;
   }
 
-  const record = await getDatabase(env)
-    .prepare("SELECT id FROM sake_records WHERE owner_id = ? AND id = ?")
-    .bind(session.userId, recordId)
-    .first<{ id: string }>();
-  if (!record) {
-    return json({ error: "not_found" }, { status: 404 });
+  const accessError = await authorizeRecordAccess(env, session.userId, recordId);
+  if (accessError) {
+    return accessError;
   }
 
   const payload = (await request.json()) as Partial<SakeImage>;
@@ -681,6 +711,11 @@ export async function deleteSakeRecordImage(
   const session = await requireSession(request, env);
   if ("response" in session) {
     return session.response;
+  }
+
+  const accessError = await authorizeRecordAccess(env, session.userId, recordId);
+  if (accessError) {
+    return accessError;
   }
 
   const image = await getDatabase(env)

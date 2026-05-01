@@ -42,11 +42,13 @@ let defaultSakeTagsSeeded = false;
 
 export class CloudStorageError extends Error {
   status: number;
+  code: string | null;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code: string | null = null) {
     super(message);
     this.name = "CloudStorageError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -133,9 +135,18 @@ async function cloudRequest<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
+    let code: string | null = null;
+    try {
+      const payload = (await response.clone().json()) as { error?: unknown };
+      code = typeof payload.error === "string" ? payload.error : null;
+    } catch {
+      code = null;
+    }
+
     throw new CloudStorageError(
       response.status,
       `Cloud storage request failed: ${response.status}`,
+      code,
     );
   }
 

@@ -15,6 +15,7 @@ import {
   getSakeRecordById,
   loadSakeRecords,
   loadSakeTags,
+  CloudStorageError,
   saveSakeRecord,
   setCloudStorageEnabled,
   updateSakeRecord,
@@ -47,6 +48,8 @@ type AuthState =
   | { status: "loading"; user: null }
   | { status: "anonymous"; user: null }
   | { status: "authenticated"; user: AuthUser };
+
+type AuthSyncResult = "authenticated" | "anonymous" | "unavailable";
 
 type StorageMode = "local" | "cloud" | "auto";
 
@@ -240,6 +243,26 @@ function getSearchableText(entry: SakeRecordEntry) {
     .toLocaleLowerCase();
 }
 
+function getCloudStorageErrorMessage(error: unknown) {
+  if (!(error instanceof CloudStorageError)) {
+    return "요청을 처리하지 못했습니다. 다시 시도해 주세요.";
+  }
+
+  if (error.status === 401) {
+    return "로그인이 만료되었습니다. 다시 Google 로그인해 주세요.";
+  }
+
+  if (error.status === 403) {
+    return "이 기록에 접근할 권한이 없습니다.";
+  }
+
+  if (error.status === 404) {
+    return "기록을 찾을 수 없습니다.";
+  }
+
+  return "클라우드 저장소 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
 function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute());
   const [draft, setDraft] = useState<SakeDraft>(() => createInitialSakeDraft());
@@ -311,6 +334,27 @@ function App() {
     }
   }, [route]);
 
+  function clearCloudSessionState(message?: string | null) {
+    setCloudStorageEnabled(false);
+    setAuth({ status: "anonymous", user: null });
+    setTags([]);
+    setRecords([]);
+    setSelectedEntry(null);
+    setActiveImage(null);
+    setIsLoading(false);
+    setStatusMessage(message ?? null);
+  }
+
+  function handleStorageError(error: unknown) {
+    const message = getCloudStorageErrorMessage(error);
+    if (error instanceof CloudStorageError && error.status === 401) {
+      clearCloudSessionState(message);
+      return;
+    }
+
+    setStatusMessage(message);
+  }
+
   useEffect(() => {
     if (isLocalMode) {
       setAuth({ status: "anonymous", user: null });
@@ -319,7 +363,11 @@ function App() {
 
     let cancelled = false;
 
-    async function syncAuth() {
+    async function syncAuth(markLoading = false): Promise<AuthSyncResult> {
+      if (markLoading && !cancelled) {
+        setAuth({ status: "loading", user: null });
+      }
+
       try {
         const response = await fetch(`/api/me?_=${Date.now()}`, {
           cache: "no-store",
@@ -333,24 +381,47 @@ function App() {
           | { authenticated: true; user: AuthUser };
 
         if (!cancelled) {
-          setAuth(
-            payload.authenticated
-              ? { status: "authenticated", user: payload.user }
-              : { status: "anonymous", user: null },
-          );
+          if (payload.authenticated) {
+            setAuth({ status: "authenticated", user: payload.user });
+          } else if (isCloudMode) {
+            clearCloudSessionState();
+          } else {
+            setAuth({ status: "anonymous", user: null });
+          }
         }
+        return payload.authenticated ? "authenticated" : "anonymous";
       } catch {
         if (!cancelled) {
-          setAuth({ status: "anonymous", user: null });
+          if (isCloudMode) {
+            clearCloudSessionState();
+          } else {
+            setAuth({ status: "anonymous", user: null });
+          }
         }
+        return "unavailable";
       }
     }
 
     void syncAuth();
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        void syncAuth(true);
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void syncAuth();
+      }
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       cancelled = true;
+      window.removeEventListener("pageshow", handlePageShow);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isLocalMode]);
+  }, [isCloudMode, isLocalMode]);
 
   useEffect(() => {
     setCloudStorageEnabled(usesCloudStorage);
@@ -361,11 +432,7 @@ function App() {
       return;
     }
 
-    setTags([]);
-    setRecords([]);
-    setSelectedEntry(null);
-    setIsLoading(false);
-    setStatusMessage(null);
+    clearCloudSessionState();
   }, [auth.status, isCloudMode]);
 
   useEffect(() => {
@@ -381,9 +448,9 @@ function App() {
         if (!cancelled) {
           setTags(nextTags);
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setStatusMessage("태그를 불러오지 못했습니다.");
+          handleStorageError(error);
         }
       }
     }
@@ -409,9 +476,10 @@ function App() {
           setRecords(nextRecords);
           setStatusMessage(null);
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setStatusMessage("사케 기록을 불러오지 못했습니다.");
+          setRecords([]);
+          handleStorageError(error);
         }
       } finally {
         if (!cancelled) {
@@ -450,15 +518,23 @@ function App() {
       }
 
       setIsLoading(true);
-      const nextEntry = await getSakeRecordById(route.id);
-      if (!cancelled) {
-        setSelectedEntry(nextEntry ?? null);
-        if (route.page === "edit" && nextEntry) {
-          const nextDraft = createDraftFromEntry(nextEntry);
-          setDraft(nextDraft);
-          setEditBaseline(serializeDraft(nextDraft));
+      try {
+        const nextEntry = await getSakeRecordById(route.id);
+        if (!cancelled) {
+          setSelectedEntry(nextEntry ?? null);
+          if (route.page === "edit" && nextEntry) {
+            const nextDraft = createDraftFromEntry(nextEntry);
+            setDraft(nextDraft);
+            setEditBaseline(serializeDraft(nextDraft));
+          }
+          setIsLoading(false);
         }
-        setIsLoading(false);
+      } catch (error) {
+        if (!cancelled) {
+          setSelectedEntry(null);
+          handleStorageError(error);
+          setIsLoading(false);
+        }
       }
     }
 
@@ -500,19 +576,23 @@ function App() {
       return;
     }
 
-    const tag = await createCustomSakeTag(tagGroup, label);
-    if (!tag) {
-      return;
-    }
+    try {
+      const tag = await createCustomSakeTag(tagGroup, label);
+      if (!tag) {
+        return;
+      }
 
-    const nextTags = await loadSakeTags();
-    setTags(nextTags);
-    setDraft((current) => ({
-      ...current,
-      selected_tag_ids: Array.from(new Set([...current.selected_tag_ids, tag.id])),
-    }));
-    setTagInputs((current) => ({ ...current, [tagGroup]: "" }));
-    setActiveTagInput(null);
+      const nextTags = await loadSakeTags();
+      setTags(nextTags);
+      setDraft((current) => ({
+        ...current,
+        selected_tag_ids: Array.from(new Set([...current.selected_tag_ids, tag.id])),
+      }));
+      setTagInputs((current) => ({ ...current, [tagGroup]: "" }));
+      setActiveTagInput(null);
+    } catch (error) {
+      handleStorageError(error);
+    }
   }
 
   async function handleImageChange(files: FileList | null) {
@@ -607,8 +687,8 @@ function App() {
       setEditBaseline(null);
       navigateTo({ page: "detail", id: entry.id });
       setStatusMessage(usesLocalStorage ? "이 기기에 저장했습니다." : "클라우드에 저장했습니다.");
-    } catch {
-      setStatusMessage("저장에 실패했습니다. 다시 시도해 주세요.");
+    } catch (error) {
+      handleStorageError(error);
     } finally {
       setIsSaving(false);
     }
@@ -636,6 +716,8 @@ function App() {
       setRecords(nextRecords);
       setSelectedEntry(null);
       navigateTo({ page: "logs" });
+    } catch (error) {
+      handleStorageError(error);
     } finally {
       setIsDeleting(false);
     }
@@ -646,7 +728,8 @@ function App() {
   }
 
   function handleLogout() {
-    window.location.assign(
+    clearCloudSessionState();
+    window.location.replace(
       `/api/auth/logout?returnTo=${encodeURIComponent("/#/logs")}&_=${Date.now()}`,
     );
   }
