@@ -1,14 +1,7 @@
 import { getDatabase, readSession, type AppEnv } from "../../_shared/auth";
 
-type UserRow = {
-  id: string;
-  email: string | null;
-  display_name: string | null;
-};
-
 type LatestSakeRecordRow = {
   id: string;
-  name: string;
   consumed_date: string;
   created_at: string;
 };
@@ -25,24 +18,31 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
   const session = await readSession(request, env);
   if (!session) {
     return Response.json(
-      { authenticated: false },
-      { headers: noStoreHeaders },
+      { error: "authentication_required" },
+      { status: 401, headers: noStoreHeaders },
     );
   }
 
   const db = getDatabase(env);
+  const userExists = await db
+    .prepare("SELECT id FROM users WHERE id = ?")
+    .bind(session.userId)
+    .first<{ id: string }>();
+
+  if (!userExists) {
+    return Response.json(
+      { error: "user_not_found" },
+      { status: 401, headers: noStoreHeaders },
+    );
+  }
+
   const [
-    user,
     sakeRecordCount,
     sakeImageCount,
     tagCount,
     recordTagCount,
     latestSakeRecords,
   ] = await Promise.all([
-    db
-      .prepare("SELECT id, email, display_name FROM users WHERE id = ?")
-      .bind(session.userId)
-      .first<UserRow>(),
     db
       .prepare("SELECT COUNT(*) AS count FROM sake_records WHERE owner_id = ?")
       .bind(session.userId)
@@ -66,7 +66,7 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
       .first<{ count: number }>(),
     db
       .prepare(
-        "SELECT id, name, consumed_date, created_at FROM sake_records WHERE owner_id = ? ORDER BY consumed_date DESC, created_at DESC LIMIT 5",
+        "SELECT id, consumed_date, created_at FROM sake_records WHERE owner_id = ? ORDER BY consumed_date DESC, created_at DESC LIMIT 5",
       )
       .bind(session.userId)
       .all<LatestSakeRecordRow>(),
@@ -75,7 +75,6 @@ export const onRequestGet: PagesFunction<AppEnv> = async ({ env, request }) => {
   return Response.json(
     {
       authenticated: true,
-      user,
       counts: {
         sakeRecords: sakeRecordCount?.count ?? 0,
         sakeImages: sakeImageCount?.count ?? 0,

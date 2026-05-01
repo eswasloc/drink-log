@@ -147,12 +147,12 @@ UI 권장:
 
 평가는 모든 카테고리에서 하나씩 선택한다.
 
-#### 4.4.1 달큼함 - 드라이함
+#### 4.4.1 달콤함 - 드라이함
 
 선택지:
 
-- 아주 달큼함
-- 달큼함
+- 아주 달콤함
+- 달콤함
 - 보통
 - 드라이함
 - 아주 드라이함
@@ -167,8 +167,8 @@ UI 권장:
 
 | 값 | 표시 |
 |---:|---|
-| 1 | 아주 달큼함 |
-| 2 | 달큼함 |
+| 1 | 아주 달콤함 |
+| 2 | 달콤함 |
 | 3 | 보통 |
 | 4 | 드라이함 |
 | 5 | 아주 드라이함 |
@@ -293,7 +293,7 @@ UI 원칙:
 - 진함
 - 깔끔함
 - 쌉쌀함
-- 달큼함
+- 달콤함
 
 주의:
 
@@ -506,7 +506,7 @@ INSERT INTO tags (id, owner_id, drink_type, tag_group, label, is_default, create
   ('tag_taste_rich', NULL, 'sake', 'taste', '진함', 1, CURRENT_TIMESTAMP),
   ('tag_taste_clean', NULL, 'sake', 'taste', '깔끔함', 1, CURRENT_TIMESTAMP),
   ('tag_taste_bitter', NULL, 'sake', 'taste', '쌉쌀함', 1, CURRENT_TIMESTAMP),
-  ('tag_taste_sweet', NULL, 'sake', 'taste', '달큼함', 1, CURRENT_TIMESTAMP),
+  ('tag_taste_sweet', NULL, 'sake', 'taste', '달콤함', 1, CURRENT_TIMESTAMP),
 
   ('tag_aroma_koji', NULL, 'sake', 'aroma', '누룩', 1, CURRENT_TIMESTAMP),
   ('tag_aroma_rice', NULL, 'sake', 'aroma', '쌀', 1, CURRENT_TIMESTAMP),
@@ -552,8 +552,8 @@ INSERT INTO tags (id, owner_id, drink_type, tag_group, label, is_default, create
 [별로] [잘모르겠음] [다시 마신다]
 
 평가
-달큼함 ───── 드라이함
-[아주 달큼함] [달큼함] [보통] [드라이함] [아주 드라이함]
+달콤함 ───── 드라이함
+[아주 달콤함] [달콤함] [보통] [드라이함] [아주 드라이함]
 
 은은함 ───── 화려함
 [은은한향] [보통] [화려한향]
@@ -672,7 +672,7 @@ INSERT INTO tags (id, owner_id, drink_type, tag_group, label, is_default, create
 평가 요약 예시:
 
 ```text
-달큼함 · 화려한향 · 산미보통 · 깔끔함
+달콤함 · 화려한향 · 산미보통 · 깔끔함
 ```
 
 ---

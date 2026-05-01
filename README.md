@@ -107,6 +107,7 @@ Cloudflare 연동은 Pages Functions 기준입니다.
 - D1 스키마: [docs/schema.sql](docs/schema.sql)
 - 로컬 저장소와 Cloudflare 매핑: [docs/local-cloudflare-mapping.md](docs/local-cloudflare-mapping.md)
 - Cloudflare Pages 메모: [docs/cloudflare-pages.md](docs/cloudflare-pages.md)
+- 운영 설정과 디버그 노출 체크리스트: [docs/operations-checklist.md](docs/operations-checklist.md)
 
 ## Validation Checklist
 

@@ -109,22 +109,43 @@ Phase 9 검증:
 
 ## Phase 10 - 운영 설정과 배포 체크리스트
 
-- [ ] D1 schema 적용 절차를 문서로 확인한다.
-- [ ] 기본 사케 태그 seed 절차를 문서로 확인한다.
-- [ ] R2 bucket과 이미지 경로 설정을 문서로 확인한다.
-- [ ] Google OAuth redirect URI와 Cloudflare Pages 배포 URL을 문서로 확인한다.
-- [ ] 운영에 필요한 환경 변수와 바인딩 이름을 한 곳에서 확인할 수 있게 정리한다.
-- [ ] Pages와 Workers 프로젝트가 섞여 보일 수 있는 지점을 문서에서 분명히 구분한다.
+- [x] D1 schema 적용 절차를 문서로 확인한다.
+- [x] 기본 사케 태그 seed 절차를 문서로 확인한다.
+- [x] R2 bucket과 이미지 경로 설정을 문서로 확인한다.
+- [x] Google OAuth redirect URI와 Cloudflare Pages 배포 URL을 문서로 확인한다.
+- [x] 운영에 필요한 환경 변수와 바인딩 이름을 한 곳에서 확인할 수 있게 정리한다.
+- [x] Pages와 Workers 프로젝트가 섞여 보일 수 있는 지점을 문서에서 분명히 구분한다.
+
+Phase 10 완료 메모:
+
+- `docs/operations-checklist.md`에 Cloudflare Pages 기준 운영 체크리스트를 추가했다.
+- D1 schema 적용 명령은 Windows PowerShell 기준 `npx.cmd wrangler d1 execute alcohol-log --remote --file=docs/schema.sql`로 정리했다.
+- 기본 사케 태그 seed 확인 query와 기대 개수(taste 7, aroma 11, mood 4)를 문서화했다.
+- R2 bucket/binding과 이미지 경로, Google OAuth redirect URI 예시, 운영 환경 변수,
+  Pages/Workers 구분 기준을 한 문서에서 확인할 수 있게 했다.
+- 운영 문서 정리 중 맛 태그와 평가 표현의 현재 기준이 `달콤함`임을 확인하고,
+  관련 문서와 코드 표기를 같은 표현으로 정리했다.
 
 ## Phase 11 - 디버그와 운영 노출 정리
 
-- [ ] `/api/debug/storage` 같은 디버그 API를 유지할지, 보호할지, 제거할지 결정한다.
-- [ ] 운영 환경에서 노출되면 안 되는 세션, 사용자, storage 정보가 응답에 포함되지
+- [x] `/api/debug/storage` 같은 디버그 API를 유지할지, 보호할지, 제거할지 결정한다.
+- [x] 운영 환경에서 노출되면 안 되는 세션, 사용자, storage 정보가 응답에 포함되지
       않는지 확인한다.
-- [ ] QA에 필요한 최소 디버그 도구와 운영에서 제거할 도구를 구분한다.
-- [ ] 디버그 API를 남긴다면 인증된 사용자에게만 제한한다.
-- [ ] service worker나 브라우저 캐시가 cloud 데이터 freshness를 해치지 않는지 다시
+- [x] QA에 필요한 최소 디버그 도구와 운영에서 제거할 도구를 구분한다.
+- [x] 디버그 API를 남긴다면 인증된 사용자에게만 제한한다.
+- [x] service worker나 브라우저 캐시가 cloud 데이터 freshness를 해치지 않는지 다시
       확인한다.
+
+Phase 11 완료 메모:
+
+- `/api/debug/storage`는 D1/R2와 UI 목록 불일치를 가르는 QA 도구로 유지한다.
+- 대신 unauthenticated 요청은 `401 authentication_required`로 제한하고, 응답에서
+  email, display name, record name 같은 사용자 식별/콘텐츠 정보를 제거했다.
+- 디버그 응답은 현재 사용자 기준 count와 최신 record의 최소 식별 정보만 반환한다.
+- `docs/operations-checklist.md`에 운영에서 남길 디버그 도구와 제거해야 할 도구를
+  구분했다.
+- service worker는 새로 등록하지 않고, 기존 registration과 Cache Storage를
+  best-effort로 정리하는 현재 코드 경로를 확인했다.
 
 ## MVP 이후로 미룰 것
 
