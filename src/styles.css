@@ -280,6 +280,7 @@ h3 {
 label {
   display: grid;
   gap: 8px;
+  min-width: 0;
   font-size: 0.95rem;
   font-weight: 600;
 }
@@ -299,7 +300,21 @@ textarea {
 }
 
 input[type="date"] {
+  display: block;
+  inline-size: 100%;
   min-width: 0;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-height: 47px;
+  line-height: 1.25;
+  -webkit-appearance: none;
+  appearance: none;
+  overflow: hidden;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+  min-height: 1.25em;
+  text-align: left;
 }
 
 input:focus,
