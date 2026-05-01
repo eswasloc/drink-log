@@ -302,18 +302,20 @@ textarea {
 input[type="date"] {
   display: block;
   inline-size: 100%;
+  block-size: 50px;
   min-width: 0;
   min-inline-size: 0;
   max-inline-size: 100%;
-  min-height: 47px;
-  line-height: 1.25;
+  line-height: 1.5;
   -webkit-appearance: none;
   appearance: none;
   overflow: hidden;
 }
 
 input[type="date"]::-webkit-date-and-time-value {
-  min-height: 1.25em;
+  display: flex;
+  align-items: center;
+  min-height: 1.5em;
   text-align: left;
 }
 
