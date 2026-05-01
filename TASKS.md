@@ -3,221 +3,96 @@
 이 문서는 `PROJECT_SAKE_REVISED.md`를 기준으로 현재 Alcohol Log 앱을
 사케 중심 기록 앱으로 다시 만드는 작업 목록이다.
 
-제품 방향은 사케 시음 기록 앱으로 리셋한다. 다만 기존에 만든 Cloudflare
-Pages, Google OAuth, `owner_id`, D1, R2 방향은 버리지 않고 재사용한다.
-반대로 현재의 위스키/profile/flavor ontology 중심 앱 모델은 교체 대상으로 본다.
+제품 방향은 사케 시음 기록 앱으로 리셋한다. 사케 MVP의 기본 작성, 목록, 상세,
+수정, 삭제 흐름은 한 차례 완성했으며, 다음 기준은 Cloudflare를 실제 저장소로
+삼는 cloud-first 앱으로 정리하는 것이다.
+
+기존에 만든 Cloudflare Pages, Google OAuth, `owner_id`, D1, R2 방향은 제품의
+주 경로로 재사용한다. 로컬 모드는 정말 간단한 보조 용도로만 남기고, 로컬 전용
+추가 기능은 붙이지 않는다.
 
 ## 리빌드 원칙
 
 - 먼저 사케 MVP를 제대로 만든다. 범용 주류 앱 UI를 주 제품으로 유지하지 않는다.
 - 데이터 모델에는 `drink_type = "sake"`를 남겨 나중에 확장할 여지를 둔다.
-- UI와 데이터 모델을 갈아엎는 동안에도 local-first 동작은 유지한다.
-- Cloudflare 인증과 사용자별 데이터 분리는 재사용할 기반으로 보되, 로컬 제품 흐름을
-  만드는 첫 번째 장애물로 삼지 않는다.
+- MVP 작성 흐름이 안정된 뒤에는 Cloudflare API를 실제 제품 저장 경로로 본다.
+- 로컬 전용 기능은 새로 늘리지 않는다.
+- IndexedDB는 계속 쓸 경우에도 간단한 보조 용도로만 제한한다.
 - 전문가형 시음 구조보다 간단한 선택값을 우선한다.
 - 인증과 클라우드 데이터 freshness가 중요한 동안에는 service worker 캐싱을 다시
   넣지 않는다.
 
-## Phase 0 - 프로젝트 리셋 경계 정리
+## 현재 작업 방향
 
-- [x] `PROJECT_SAKE_REVISED.md`를 현재 제품의 기준 문서로 삼는다.
-- [x] 기존 `PROJECT.md`를 예전 범용 주류 앱 기획으로 보관할지, 사케 방향에 맞춰
-      다시 쓸지 결정한다.
-- [x] 현재 코드 중 재사용할 가능성이 높은 부분을 확인한다.
-  - `functions/`: 인증, 세션, 클라우드 API 뼈대
-  - `wrangler.jsonc`와 Cloudflare 관련 문서
-  - 이미지 data URL, 썸네일 생성 같은 유틸리티 코드
-- [x] 현재 코드 중 교체하거나 크게 다시 쓸 부분을 확인한다.
-  - `src/App.tsx`
-  - `src/lib/storage.ts`
-  - `src/types/models.ts`
-  - `src/data/flavors.ts`
-  - `src/data/profiles.ts`
-  - `src/components/` 아래 flavor 중심 컴포넌트
+- 사용자는 실제 QA를 진행하면서 앱을 써 보고 있다.
+- Cloudflare 경로는 현재 QA 기준으로 큰 문제 없이 보인다.
+- 앞으로의 작업은 새 기능 추가보다 cloud-first 기준으로 코드, 문서, 운영 경로를
+  단순하게 만드는 데 둔다.
+- 로컬 모드는 장기 제품 방향이 아니며, 간단한 보조 용도 외의 추가 기능은 붙이지 않는다.
 
-Phase 0 결정:
+## 완료된 Phase 요약
 
-- 현재 제품 기준 문서는 `PROJECT_SAKE_REVISED.md`로 고정한다.
-- `PROJECT.md`는 예전 범용 주류 앱 기획으로 보관하고, 사케 MVP 기준 문서로 다시
-  쓰지 않는다.
-- 기존 Cloudflare 인증/세션/API 뼈대와 이미지 처리 유틸리티는 재사용 후보로 둔다.
-- 현재 frontend의 위스키/profile/flavor ontology 중심 구현은 사케 MVP 흐름에 맞춰
-  이후 Phase에서 교체 대상으로 둔다.
+Phase 0-7은 사케 MVP 리빌드 완료 이력으로만 관리한다. 다음 작업을 고를 때는 아래
+요약만 참고하고, 세부 체크리스트는 현재 작업 대상에서 제외한다.
 
-## Phase 1 - 사케 도메인 모델 만들기
+- [x] Phase 0: `PROJECT_SAKE_REVISED.md`를 현재 제품 기준 문서로 고정했고,
+      기존 범용 주류 앱 흐름은 교체 대상으로 정리했다.
+- [x] Phase 1: 사케 중심 도메인 모델과 draft 기본값을 만들었다.
+- [x] Phase 2: 사케용 로컬 store와 기본 태그, 커스텀 태그, 이미지 저장 구조를
+      만들었다. 기존 alcohol-log 기록은 자동 마이그레이션하지 않는다.
+- [x] Phase 3: 작성 화면을 사진, 기본 정보, 다시 마실까, 평가, 한줄 메모, 태그,
+      외부 정보 순서로 리빌드했다.
+- [x] Phase 4: 목록 화면을 사케 기록 기준 정보와 단순 검색 중심으로 리빌드했다.
+- [x] Phase 5: 상세, 수정, 삭제 흐름을 사케 spec 순서에 맞춰 리빌드했다.
+- [x] Phase 6: Cloudflare D1/R2 schema와 Pages Functions API를 사케 모델에
+      맞췄고, 사용자별 `owner_id` 경계를 적용했다.
+- [x] Phase 7: `npm.cmd run typecheck`, `npm.cmd run typecheck:functions`,
+      `npm.cmd run build`를 통과했고, dev server 없이 주요 수동 확인 항목을 점검했다.
 
-- [x] 범용 tasting 모델을 사케 중심 모델로 교체한다.
-  - `SakeRecord`
-  - `SakeImage`
-  - `SakeTag`
-  - `SakeRecordTag`
-  - `SakeDraft`
-- [x] revised spec의 필드를 모델에 반영한다.
-  - `name`
-  - `region`
-  - `brewery`
-  - `rice`
-  - `sake_type`
-  - `sake_meter_value`
-  - `abv`
-  - `volume`
-  - `price`
-  - `drink_again`
-  - `sweet_dry`
-  - `aroma_intensity`
-  - `acidity`
-  - `clean_umami`
-  - `one_line_note`
-  - `place`
-  - `consumed_date`
-  - `companions`
-  - `food_pairing`
-- [x] 저장 필수값은 `name`만 둔다.
-- [x] 새 기록의 `consumed_date` 기본값은 오늘 날짜로 둔다.
-- [x] 도수, 가격, 용량, 일본주도처럼 형식이 다양할 수 있는 값은 첫 버전에서
-      문자열로 저장한다.
+## Phase 8 - Cloud-first 전환 경계 정리
 
-## Phase 2 - 로컬 저장소 재구성
+- [ ] 앱의 기준 저장소를 Cloudflare API로 고정한다.
+- [ ] 로컬 IndexedDB는 간단한 보조 용도로만 남긴다.
+- [ ] 로컬 전용 모드로만 가능한 사용자 기능은 새로 만들지 않는다.
+- [ ] UI에서 로컬 데이터와 클라우드 데이터가 섞여 보일 수 있는 지점을 찾는다.
+- [ ] 클라우드 기준으로 기록 목록, 상세, 작성, 수정, 삭제 흐름이 한 경로로 이어지게
+      정리한다.
+- [ ] `docs/local-cloudflare-mapping.md`가 더 이상 제품 기준 문서처럼 보이지 않게
+      현재 역할을 다시 설명한다.
 
-- [x] IndexedDB 버전을 올리고 사케용 store를 만든다.
-  - `sake_records`
-  - `sake_images`
-  - `tags`
-  - `record_tags`
-- [x] `taste`, `aroma`, `mood` 그룹의 기본 사케 태그를 seed한다.
-- [x] 커스텀 태그 추가 기능을 만든다.
-  - 앞뒤 공백 제거
-  - 중복 방지
-  - 최대 길이 제한
-  - 빈 문자열 저장 방지
-- [x] 기록별 선택 태그를 저장한다.
-- [x] 기록 하나에 여러 이미지를 저장한다.
-- [x] 첫 번째 이미지를 대표 이미지로 사용한다.
-- [x] 기존 alcohol-log 기록을 새 사케 흐름으로 마이그레이션할지, 새 흐름 밖의
-      legacy 데이터로 둘지 결정한다.
+Phase 8 결정 기준:
 
-Phase 2 결정:
+- 사용자가 실제로 쓰는 제품 데이터는 Cloudflare D1/R2에 있어야 한다.
+- IndexedDB는 남기더라도 제품의 주 저장소가 아니라 간단한 보조 장치로만 본다.
+- 이 단계에서는 백업/export, 오프라인 모드, 로컬 전용 기능을 추가하지 않는다.
 
-- 기존 alcohol-log 기록은 자동 마이그레이션하지 않고 legacy 데이터로 둔다.
-- 새 사케 흐름은 `sake_records`, `sake_images`, `tags`, `record_tags` store를 사용한다.
-- 리스트/상세에서 대표 이미지는 `display_order = 0`인 첫 번째 이미지로 판단한다.
-- 기존 Bottle / TastingLog 저장 로직은 Phase 3-4에서 화면 흐름을 사케용으로 바꾸며
-  더 이상 앱 진입 흐름에 걸리지 않게 정리한다.
+## Phase 9 - 로그인과 세션 UX 마감
 
-## Phase 3 - 작성 화면 리빌드
+- [ ] 로그인하지 않은 사용자가 앱에 들어왔을 때의 첫 화면을 cloud-first 기준으로
+      점검한다.
+- [ ] `/api/me` 실패, 세션 만료, 로그아웃 직후 재진입 흐름을 확인한다.
+- [ ] `401`과 `403` 응답을 사용자가 이해할 수 있는 상태로 처리한다.
+- [ ] 모바일 Safari에서 로그아웃 후 뒤로가기, 새로고침, 재방문 흐름을 확인한다.
+- [ ] 인증이 필요한 이미지 업로드와 삭제 API가 비로그인 상태에서 막히는지 확인한다.
 
-- [x] 첫 화면을 실제 사케 기록 작성 화면으로 다시 만든다.
-- [x] revised spec의 입력 순서를 따른다.
-  - 사진
-  - 기본 정보
-  - 다시 마실까?
-  - 평가
-  - 한줄 메모
-  - 특성 태그
-  - 외부 정보
-- [x] 여러 장의 사진을 추가할 수 있게 하고 대표 이미지 영역과 썸네일을 보여준다.
-- [x] 기본 정보 입력은 술 이름만 강하게 필수로 보이게 한다.
-- [x] `drink_again` 선택지를 버튼형으로 만든다.
-  - 별로
-  - 잘모르겠음
-  - 다시 마신다
-- [x] 평가 항목을 버튼형 선택으로 만든다.
-  - 달큼함 - 드라이함
-  - 은은함 - 화려함
-  - 산미
-  - 깔끔함 - 감칠맛
-- [x] 한줄 메모는 태그보다 앞에 둔다.
-- [x] 태그 선택을 그룹별로 만든다.
-  - 맛 태그
-  - 향 태그
-  - 느낌 태그
-- [x] 각 태그 그룹 끝에 `+` 버튼을 두고, 새 태그를 추가하면 자동 선택되게 한다.
-- [x] 모바일에서 한 손으로 빠르게 기록할 수 있을 만큼 화면을 압축한다.
-- [x] 수정 모드에서는 작성 중인 변경사항을 버리기 전에 확인한다.
+## Phase 10 - 운영 설정과 배포 체크리스트
 
-## Phase 4 - 목록 화면 리빌드
+- [ ] D1 schema 적용 절차를 문서로 확인한다.
+- [ ] 기본 사케 태그 seed 절차를 문서로 확인한다.
+- [ ] R2 bucket과 이미지 경로 설정을 문서로 확인한다.
+- [ ] Google OAuth redirect URI와 Cloudflare Pages 배포 URL을 문서로 확인한다.
+- [ ] 운영에 필요한 환경 변수와 바인딩 이름을 한 곳에서 확인할 수 있게 정리한다.
+- [ ] Pages와 Workers 프로젝트가 섞여 보일 수 있는 지점을 문서에서 분명히 구분한다.
 
-- [x] flavor summary 중심 목록 정보를 사케 기록 정보로 교체한다.
-- [x] 각 기록에 다음 정보를 보여준다.
-  - 대표 사진
-  - 술 이름
-  - 종류 또는 지역
-  - 다시 마실까?
-  - 마신 날짜
-  - 주요 태그 2-3개
-- [x] 기본 정렬은 최신 기록순으로 둔다.
-- [x] MVP 검색은 단순 문자열 검색으로 만든다.
-  - 술 이름
-  - 지역
-  - 양조장
-  - 종류
-  - 쌀
-  - 태그
-  - 장소
-  - 메모
-- [x] 고급 필터는 MVP 흐름이 안정된 뒤로 미룬다.
+## Phase 11 - 디버그와 운영 노출 정리
 
-## Phase 5 - 상세와 수정 화면 리빌드
-
-- [x] 상세 화면은 revised spec의 순서로 다시 만든다.
-  - 사진 갤러리
-  - 술 이름
-  - 다시 마실까?
-  - 평가 요약
-  - 한줄 메모
-  - 특성 태그
-  - 기본 정보 전체
-  - 외부 정보
-  - 수정 버튼
-- [x] 평가 요약은 짧은 한국어 라벨로 보여준다.
-- [x] 수정 화면은 작성 폼을 재사용한다.
-- [x] 삭제는 확인 후 진행한다.
-- [x] 새 기록 작성은 항상 깨끗한 draft로 시작한다.
-
-## Phase 6 - Cloudflare 스키마와 API 맞추기
-
-- [x] `docs/schema.sql`을 새 사케 모델에 맞춘다.
-  - `sake_records`
-  - `sake_images`
-  - `tags`
-  - `record_tags`
-  - 기존 `users`
-  - 기존 `oauth_sessions`
-- [x] `docs/local-cloudflare-mapping.md`를 새 로컬 store 기준으로 고친다.
-- [x] 클라우드 API route를 새 이름으로 맞춘다.
-  - `GET /api/sake-records`
-  - `POST /api/sake-records`
-  - `GET /api/sake-records/:id`
-  - `PUT /api/sake-records/:id`
-  - `DELETE /api/sake-records/:id`
-  - `POST /api/sake-records/:id/images`
-  - `DELETE /api/sake-records/:id/images/:imageId`
-  - `GET /api/tags?drink_type=sake`
-  - `POST /api/tags`
-- [x] 모든 클라우드 읽기와 쓰기는 로그인한 사용자의 `owner_id` 기준으로 제한한다.
-- [x] R2 이미지는 `images/{owner_id}/sake/{record_id}/{image_id}.jpg` 또는
-      그에 준하는 인증된 경로에 저장한다.
-
-## Phase 7 - 검증
-
-- [x] TypeScript 모델이나 UI를 바꾼 뒤 `npm.cmd run typecheck`를 실행한다.
-- [x] Functions나 클라우드 스키마 관련 코드를 바꾼 뒤
-      `npm.cmd run typecheck:functions`를 실행한다.
-- [x] 배포하거나 커밋하기 전 `npm.cmd run build`를 실행한다.
-- [x] 명시적으로 필요하지 않으면 dev server는 띄우지 않고 수동 확인 항목을 점검한다.
-  - 술 이름만으로 새 사케 기록을 저장할 수 있다.
-  - 사진 여러 장이 유지된다.
-  - 날짜 기본값이 오늘로 들어간다.
-  - 기본 태그가 보인다.
-  - 커스텀 태그가 저장되고 자동 선택된다.
-  - 목록 정보가 사케 spec에 맞게 보인다.
-  - 상세 화면이 revised spec의 정보 순서를 따른다.
-  - 수정 모드에서 작성 중 변경사항 보호가 동작한다.
-
-Phase 7 확인:
-
-- `npm.cmd run typecheck`, `npm.cmd run typecheck:functions`, `npm.cmd run build` 통과.
-- dev server는 띄우지 않고, 수동 확인 항목은 현재 코드 흐름 기준으로 점검했다.
+- [ ] `/api/debug/storage` 같은 디버그 API를 유지할지, 보호할지, 제거할지 결정한다.
+- [ ] 운영 환경에서 노출되면 안 되는 세션, 사용자, storage 정보가 응답에 포함되지
+      않는지 확인한다.
+- [ ] QA에 필요한 최소 디버그 도구와 운영에서 제거할 도구를 구분한다.
+- [ ] 디버그 API를 남긴다면 인증된 사용자에게만 제한한다.
+- [ ] service worker나 브라우저 캐시가 cloud 데이터 freshness를 해치지 않는지 다시
+      확인한다.
 
 ## MVP 이후로 미룰 것
 
