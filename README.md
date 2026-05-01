@@ -1,6 +1,6 @@
 # Alcohol Log
 
-사케를 마실 때 사진, 기본 정보, 맛의 방향, 다시 마실 의향, 장소와 동행 정보를 빠르게 남기는 로컬 우선 시음 기록 앱입니다.
+사케를 마실 때 사진, 기본 정보, 맛의 방향, 다시 마실 의향, 장소와 동행 정보를 빠르게 남기는 cloud-first 시음 기록 앱입니다.
 
 현재 제품 기준 문서는 [PROJECT_SAKE_REVISED.md](PROJECT_SAKE_REVISED.md)입니다. 예전 범용 주류 기록 방향보다 사케 MVP를 우선합니다.
 
@@ -16,8 +16,8 @@
 - 맛, 향, 느낌 태그 선택
 - 커스텀 태그 추가와 다음 기록 재사용
 - 날짜 기본값 오늘
-- IndexedDB 기반 로컬 저장
-- Cloudflare Pages Functions, D1, R2, Google OAuth로 이어지는 API/스키마 기반
+- Cloudflare Pages Functions, D1, R2, Google OAuth 기반 저장
+- IndexedDB는 간단한 보조 저장소와 개발용 fallback으로만 유지
 
 MVP에서는 OCR, AI 추천, 통계 대시보드, 여러 술 타입별 전용 UI, 범용 flavor ontology, 태그 삭제/병합, 이미지 순서 변경, 공개 공유 기능을 다루지 않습니다.
 
@@ -26,9 +26,9 @@ MVP에서는 OCR, AI 추천, 통계 대시보드, 여러 술 타입별 전용 UI
 - React 18
 - TypeScript
 - Vite
-- IndexedDB
 - Cloudflare Pages Functions
-- Cloudflare D1/R2 schema and API draft
+- Cloudflare D1/R2
+- IndexedDB fallback
 
 ## Product Flow
 
@@ -76,7 +76,8 @@ npm.cmd run dev:https
 
 ## Data Model
 
-로컬 IndexedDB와 Cloudflare D1/R2 모델은 사케 MVP 기준으로 맞춰져 있습니다.
+제품 기준 데이터는 Cloudflare D1/R2에 저장합니다. 로컬 IndexedDB 구조는 사케 MVP 기준으로
+모델을 맞춰 둔 보조 경로이며, 현재 사용자 흐름의 주 저장소가 아닙니다.
 
 - `sake_records`
 - `sake_images`
@@ -91,6 +92,7 @@ npm.cmd run dev:https
 
 Cloudflare 연동은 Pages Functions 기준입니다.
 
+- Pages production 환경 변수에 `VITE_STORAGE_MODE=cloud`를 설정합니다.
 - Google OAuth로 로그인합니다.
 - Google `sub` 값을 사용자 식별자로 사용합니다.
 - 사용자 소유 데이터는 `owner_id`로 분리합니다.

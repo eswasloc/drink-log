@@ -9,6 +9,13 @@
 - Build output directory: `dist`
 - Routes: 현재 앱은 hash route(`#/logs`)를 사용하므로 별도 SPA rewrite가 없어도 새로고침 문제가 적습니다.
 
+Production 환경 변수:
+
+- `VITE_STORAGE_MODE=cloud`
+
+로컬 개발에서는 이 값을 비워 두면 기본값 `local`로 동작합니다. 필요하면 `.env.local`에
+`VITE_STORAGE_MODE=local`을 명시할 수 있습니다.
+
 Cloudflare Pages 공식 문서에서도 Vite React의 빌드 명령은 `npm run build`, 출력 폴더는 `dist`로 안내합니다.
 
 ## D1 / R2를 바로 붙일 수 있는지
@@ -36,7 +43,9 @@ Cloudflare Access email OTP may be used as a temporary outer gate for a private 
 deployment, but it only authenticates allowed visitors. Multi-user data isolation still
 requires the application-level `users` table and `owner_id` authorization checks.
 
-현재 로컬 IndexedDB 구조는 사케 MVP 기준으로 Cloudflare에 옮기기 좋게 나뉘어 있습니다.
+현재 제품의 기준 저장소는 Cloudflare Pages Functions를 거친 D1/R2입니다. 로컬
+IndexedDB 구조는 초기 사케 MVP 기준으로 Cloudflare에 옮기기 좋게 나뉘어 있지만,
+이제는 제품의 주 저장소가 아니라 간단한 보조 저장소와 개발용 fallback으로만 봅니다.
 
 - `sake_records` -> D1 `sake_records`
 - `sake_images` 메타데이터 -> D1 `sake_images`
@@ -45,7 +54,9 @@ requires the application-level `users` table and `owner_id` authorization checks
 - `tags` -> D1 `tags`
 - `record_tags` -> D1 `record_tags`
 
-즉, 다음 작업은 저장소 자체를 다시 설계하는 일이 아니라 `src/lib/storage.ts`와 같은 인터페이스를 유지하면서 Cloudflare용 저장 어댑터를 하나 더 붙이는 일입니다.
+즉, 현재 작업은 저장소 자체를 다시 설계하는 일이 아니라 `src/lib/storage.ts`와 같은
+인터페이스를 유지하되, 앱의 주 기록 흐름이 Cloudflare API 한 경로를 사용하게
+정리하는 일입니다.
 
 ## 다음 구현 순서
 
@@ -55,7 +66,8 @@ requires the application-level `users` table and `owner_id` authorization checks
 4. `wrangler.jsonc`의 `d1_databases`, `r2_buckets` 주석을 실제 리소스 값으로 활성화합니다.
 5. `docs/schema.sql`을 D1에 적용합니다.
 6. `functions/api/sake-records`와 `functions/api/tags` 계열 Pages Functions를 사용하되, 모든 read/write에서 session user와 `owner_id`를 확인합니다.
-7. 앱에서는 local-only 모드와 Cloudflare sync 모드를 선택할 수 있게 분리합니다.
+7. 앱의 제품 흐름은 Cloudflare API를 기준으로 둡니다. local-only 모드와 Cloudflare
+   sync 모드를 사용자 기능으로 늘리는 일은 현재 MVP 이후로 미룹니다.
 
 ## 참고 문서
 

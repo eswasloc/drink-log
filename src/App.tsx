@@ -48,6 +48,20 @@ type AuthState =
   | { status: "anonymous"; user: null }
   | { status: "authenticated"; user: AuthUser };
 
+type StorageMode = "local" | "cloud" | "auto";
+
+const STORAGE_MODES = new Set<StorageMode>(["local", "cloud", "auto"]);
+
+function getStorageMode(value: string | undefined): StorageMode {
+  if (value && STORAGE_MODES.has(value as StorageMode)) {
+    return value as StorageMode;
+  }
+
+  return "local";
+}
+
+const STORAGE_MODE = getStorageMode(import.meta.env.VITE_STORAGE_MODE);
+
 const TAG_GROUPS: ReadonlyArray<{ value: SakeTagGroup; label: string }> = [
   { value: "taste", label: "맛 태그" },
   { value: "aroma", label: "향 태그" },
@@ -251,6 +265,14 @@ function App() {
   const canSave = draft.name.trim().length > 0;
   const hasUnsavedEdit =
     route.page === "edit" && editBaseline !== null && serializeDraft(draft) !== editBaseline;
+  const isCloudMode = STORAGE_MODE === "cloud";
+  const isLocalMode = STORAGE_MODE === "local";
+  const isAutoMode = STORAGE_MODE === "auto";
+  const isCloudReady = auth.status === "authenticated";
+  const usesCloudStorage = isCloudMode ? isCloudReady : isAutoMode && isCloudReady;
+  const canUseStorage = isLocalMode || usesCloudStorage || (isAutoMode && auth.status === "anonymous");
+  const usesLocalStorage = canUseStorage && !usesCloudStorage;
+  const needsCloudLogin = isCloudMode && !isCloudReady;
   const filteredRecords = useMemo(() => {
     const query = normalizeSearchText(searchQuery);
     if (!query) {
@@ -290,6 +312,11 @@ function App() {
   }, [route]);
 
   useEffect(() => {
+    if (isLocalMode) {
+      setAuth({ status: "anonymous", user: null });
+      return;
+    }
+
     let cancelled = false;
 
     async function syncAuth() {
@@ -323,17 +350,29 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isLocalMode]);
 
   useEffect(() => {
-    setCloudStorageEnabled(auth.status === "authenticated");
-  }, [auth.status]);
+    setCloudStorageEnabled(usesCloudStorage);
+  }, [usesCloudStorage]);
+
+  useEffect(() => {
+    if (!isCloudMode || auth.status !== "anonymous") {
+      return;
+    }
+
+    setTags([]);
+    setRecords([]);
+    setSelectedEntry(null);
+    setIsLoading(false);
+    setStatusMessage(null);
+  }, [auth.status, isCloudMode]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function syncTags() {
-      if (auth.status === "loading") {
+      if (!canUseStorage) {
         return;
       }
 
@@ -353,13 +392,13 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [auth.status]);
+  }, [canUseStorage, usesCloudStorage]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function syncRecords() {
-      if (auth.status === "loading") {
+      if (!canUseStorage) {
         return;
       }
 
@@ -385,13 +424,21 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [auth.status]);
+  }, [canUseStorage, usesCloudStorage]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function syncSelectedEntry() {
       if (auth.status === "loading") {
+        return;
+      }
+
+      if (!canUseStorage) {
+        if (!cancelled) {
+          setSelectedEntry(null);
+          setIsLoading(false);
+        }
         return;
       }
 
@@ -419,7 +466,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [auth.status, route]);
+  }, [auth.status, canUseStorage, usesCloudStorage, route]);
 
   function updateDraft<K extends keyof SakeDraft>(key: K, value: SakeDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -439,6 +486,15 @@ function App() {
   }
 
   async function handleAddTag(tagGroup: SakeTagGroup) {
+    if (!canUseStorage) {
+      setStatusMessage(
+        needsCloudLogin
+          ? "클라우드 저장을 사용하려면 Google 로그인이 필요합니다."
+          : "사용할 수 있는 저장소를 찾지 못했습니다.",
+      );
+      return;
+    }
+
     const label = tagInputs[tagGroup];
     if (!label.trim()) {
       return;
@@ -522,6 +578,15 @@ function App() {
   }
 
   async function handleSave() {
+    if (!canUseStorage) {
+      setStatusMessage(
+        needsCloudLogin
+          ? "클라우드에 저장하려면 Google 로그인이 필요합니다."
+          : "사용할 수 있는 저장소를 찾지 못했습니다.",
+      );
+      return;
+    }
+
     if (!canSave) {
       setStatusMessage("술 이름은 꼭 입력해 주세요.");
       return;
@@ -541,9 +606,7 @@ function App() {
       setDraft(createInitialSakeDraft());
       setEditBaseline(null);
       navigateTo({ page: "detail", id: entry.id });
-      setStatusMessage(
-        auth.status === "authenticated" ? "클라우드에 저장했습니다." : "이 기기에 저장했습니다.",
-      );
+      setStatusMessage(usesLocalStorage ? "이 기기에 저장했습니다." : "클라우드에 저장했습니다.");
     } catch {
       setStatusMessage("저장에 실패했습니다. 다시 시도해 주세요.");
     } finally {
@@ -552,6 +615,15 @@ function App() {
   }
 
   async function handleDeleteRecord(recordId: string) {
+    if (!canUseStorage) {
+      setStatusMessage(
+        needsCloudLogin
+          ? "클라우드 기록을 삭제하려면 Google 로그인이 필요합니다."
+          : "사용할 수 있는 저장소를 찾지 못했습니다.",
+      );
+      return;
+    }
+
     const confirmed = window.confirm("이 기록을 삭제할까요? 삭제한 기록은 되돌릴 수 없습니다.");
     if (!confirmed) {
       return;
@@ -579,7 +651,43 @@ function App() {
     );
   }
 
+  function renderCloudRequired() {
+    if (auth.status === "loading") {
+      return (
+        <main className="single-column">
+          <section className="panel">
+            <p className="empty-copy">로그인 상태를 확인하는 중...</p>
+          </section>
+        </main>
+      );
+    }
+
+    return (
+      <main className="single-column">
+        <section className="panel">
+          <div className="panel-header">
+            <div>
+              <p className="kicker">클라우드 로그인 필요</p>
+              <h2>Google 로그인 후 기록할 수 있습니다</h2>
+            </div>
+          </div>
+          <p className="empty-copy">
+            사케 기록은 Cloudflare D1/R2에 저장됩니다. 이 기기의 로컬 기록과 클라우드
+            기록을 섞어 보여주지 않습니다.
+          </p>
+          <button type="button" className="save-button" onClick={handleLogin}>
+            Google 로그인
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   function renderComposer() {
+    if (needsCloudLogin) {
+      return renderCloudRequired();
+    }
+
     return (
       <main className="single-column">
         {route.page === "edit" && isLoading ? (
@@ -930,6 +1038,10 @@ function App() {
   }
 
   function renderList() {
+    if (needsCloudLogin) {
+      return renderCloudRequired();
+    }
+
     return (
       <main className="single-column">
         <section className="panel list-panel">
@@ -1012,6 +1124,10 @@ function App() {
   }
 
   function renderDetail() {
+    if (needsCloudLogin) {
+      return renderCloudRequired();
+    }
+
     const record = selectedEntry?.record;
     const basicInfoRows = record
       ? [
@@ -1199,8 +1315,12 @@ function App() {
                 {auth.user.avatarUrl ? <img src={auth.user.avatarUrl} alt="" /> : null}
                 <span>{auth.user.displayName ?? auth.user.email ?? "Google 사용자"} · Cloud sync</span>
               </>
+            ) : isLocalMode ? (
+              <span>로컬 모드</span>
+            ) : isAutoMode ? (
+              <span>{auth.status === "loading" ? "로그인 확인 중" : "자동 모드 · 로컬 저장"}</span>
             ) : (
-              <span>{auth.status === "loading" ? "로그인 확인 중" : "로컬 모드"}</span>
+              <span>{auth.status === "loading" ? "로그인 확인 중" : "클라우드 로그인 필요"}</span>
             )}
           </div>
           <button
